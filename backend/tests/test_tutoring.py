@@ -57,56 +57,44 @@ def test_derivative_level5_and_no_leak_before_learner(client, script):
     assert r"2x\cos(x^2)" not in joined and "cos(x^2) * 2x" not in joined
 
 
-def test_derivative_walkthrough_to_completion(client, script):
+def test_derivative_walkthrough_to_completion(client, script, fake):
+    """No mistakes: every verified answer is accepted and the tutor moves straight on (0 AI calls)."""
     view = start(client, r"\frac{d}{dx}\sin(x^2)")
     pid = view["id"]
-    # Step 1: inner function (verified by SymPy -> canned check question, 0 calls)
+    fake.calls.clear()
     view = turn(client, pid, latex="u = x^2")
-    assert view["turn_ai_calls"] == 0 and view["phase"] == "checking"
-    script.push(default_turn(reply="Right, it's inside. What is the derivative of sin with respect to its argument?",
-                             question="What is the derivative of sin with respect to its argument?",
-                             check_passed=True))
-    view = turn(client, pid, text="because x squared is what sine is applied to")
     assert view["step_index"] == 1 and view["phase"] == "working"
-    # Step 2: outer derivative
+    assert tutor_texts(view)[-1] == "Correct. Step 2: What is the derivative of sin with respect to its argument?"
     view = turn(client, pid, latex=r"\cos(u)")
-    assert view["phase"] == "checking"
-    script.push(default_turn(reply="Good. What is the derivative of the inner function?",
-                             question="What is the derivative of the inner function?", check_passed=True))
-    view = turn(client, pid, text="we differentiate with respect to the inside")
-    # Step 3: inner derivative
+    assert view["step_index"] == 2
     view = turn(client, pid, latex="2x")
-    script.push(default_turn(reply="Yes. How does the chain rule combine the two derivatives?",
-                             question="How does the chain rule combine them?", check_passed=True))
-    view = turn(client, pid, text="power rule")
     assert view["step_index"] == 3
-    # Step 4 (last): learner produces the final answer in an equivalent form
+    # Last step: the learner's final answer in an equivalent form completes the problem.
     view = turn(client, pid, latex=r"\cos(x^2)\cdot 2x")
-    assert view["phase"] == "checking"
-    script.push(default_turn(reply="Exactly. You've finished the problem.", question="", check_passed=True))
-    view = turn(client, pid, text="the chain rule multiplies outer derivative times inner derivative")
     assert view["status"] == "completed"
+    assert "You solved it" in tutor_texts(view)[-1]
     assert all(s["status"] == "done" for s in view["steps"])
+    assert fake.call_count == 0
 
 
 def test_arithmetic_walkthrough_to_completion(client, script):
     view = start(client, r"5\times5")
     pid = view["id"]
-    # Step 1 is conceptual: the AI judges it (SymPy can't check words).
-    script.push(default_turn(reply="Yes. Why do 5 groups show 5 times 5?", question="Why do 5 groups show 5 times 5?",
-                             learner_correct="yes"))
+    # Step 1 is conceptual: the AI judges it (SymPy can't check words). No mistakes -> next step.
+    script.push(default_turn(reply="Yes. Count by fives. How many apples in all?",
+                             question="Count by fives. How many apples in all?", learner_correct="yes"))
     view = turn(client, pid, text="5 groups")
-    assert view["phase"] == "checking"
-    script.push(default_turn(reply="Good. Count by fives. How many apples in all?",
-                             question="Count by fives. How many apples in all?", check_passed=True))
-    view = turn(client, pid, text="because each group has 5 and there are 5 of them")
-    assert view["step_index"] == 1
-    # Learner restates the problem instead of computing -> not accepted
+    assert view["step_index"] == 1 and view["phase"] == "working"
+    # Learner restates the problem instead of computing -> not accepted, not a mistake
     script.push(default_turn(reply="That's the problem again. Count them up.", question="How many in all?"))
     view = turn(client, pid, latex=r"5\times5")
     assert view["phase"] == "working"
+    # A wrong answer, then the right one -> one why-question (N4 after a mistake).
+    script.push(default_turn(reply="Not quite. Count again.", question="How many in all?"))
+    turn(client, pid, text="24")
     view = turn(client, pid, text="25")
     assert view["phase"] == "checking" and view["turn_ai_calls"] == 0
+    assert "How did counting by fives help?" in tutor_texts(view)[-1]
     script.push(default_turn(reply="Right, you solved it.", question="", check_passed=True))
     view = turn(client, pid, text="i counted 5 10 15 20 25")
     assert view["status"] == "completed"
@@ -115,8 +103,8 @@ def test_arithmetic_walkthrough_to_completion(client, script):
 def test_equivalent_form_accepted(client):
     view = start(client, "2(x+1)+0")
     view = turn(client, view["id"], latex="2(x+1)")
-    # 2(x+1) vs expected 2x+2: SymPy-equivalent -> accepted, 0 AI calls.
-    assert view["phase"] == "checking"
+    # 2(x+1) vs expected 2x+2: SymPy-equivalent -> accepted, 0 AI calls, problem solved.
+    assert view["status"] == "completed"
     assert view["turn_ai_calls"] == 0
 
 

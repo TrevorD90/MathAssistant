@@ -49,8 +49,9 @@ FastAPI (security middleware → routes → Services)
 
 1. **Off-topic pre-check** (text only). Obvious → canned redirect + current question. **0 AI calls.**
 2. **SymPy check** of the learner's math against the current step result (last step: against the SymPy answer).
-   - Correct → canned "Correct." + the plan's check question. **0 AI calls.** Display wiped.
-   - Correct final answer → problem completed. **0 AI calls.**
+   - Answers are routed against the final answer, then the current step, then later steps (`engine/answer_router.py`).
+   - Correct, no mistakes on the step → canned "Correct. Step n: …" (or "You solved it"). **0 AI calls.** Display wiped.
+   - Correct after a mistake → canned "Correct." + the plan's why/how check question. **0 AI calls.**
 3. Otherwise **one AI call** with ENGINE NOTES (verdict, attempts, phase, whether a display payload is allowed). Returns `{intent, reply, question, learner_correct, check_passed, display_*}`.
 4. **Leak guard** on reply, question and display payload. Hit → regenerate once with a stricter note; a second hit → the step's pre-guarded safe hint (or a canned step advance if the check had passed).
 5. Engine applies labels: off-topic → no state change; `check_passed` → advance (display wiped); conceptual `learner_correct` → checking.

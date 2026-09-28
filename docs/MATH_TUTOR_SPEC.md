@@ -25,7 +25,7 @@ People use this because they want help learning math, not answers. The design ke
 | N1 | **Never give the final answer**: not in text, not in the display box. | System prompt · answer-leak guardrail (§7.3) · display-box validator |
 | N2 | **Guide, don't solve.** Each turn advances the learner by at most one step, via a question or a hint. | System prompt · step-engine state (§7.2) |
 | N3 | **Break every problem into steps** before tutoring begins. | Step plan per problem (§7.1) |
-| N4 | **Verify understanding with questions** at each step before moving on. | Step engine requires a passed check to advance |
+| N4 | **Verify understanding with questions** when a learner struggled: after a mistake on a step, a correct answer is followed by one why/how check before moving on. A correct answer with no mistakes is accepted immediately (amended 2026-09-28). | Step engine requires a passed check to advance only after a wrong attempt |
 | N5 | **Questions must be relevant** to the current step of the current problem. | System prompt · step plan supplies the check target |
 | N6 | **Register matches the math level** of the problem, not the user's age (§6). | Level set per problem at intake |
 | N7 | **Stay on task.** Off-topic messages get a short, direct redirect. No engagement. | Intent label per turn + local pre-check (§8) |
@@ -158,7 +158,7 @@ For the current step:
 1. Tutor asks a guiding question relevant to this step's goal.
 2. Learner responds (MathLive field or text).
 3. Check the response: SymPy if it's math, the AI (inside the normal turn call) if it's conceptual.
-4. Correct → a **check-understanding question** (why/how, not just what) → pass → advance.
+4. Correct with no mistakes on this step → advance immediately. Correct after a mistake → a **check-understanding question** (why/how, not just what) → pass → advance.
 5. Incorrect → a smaller hint or simpler sub-question. Never the step's result.
 6. After the final step, the learner states the final answer; the tutor confirms it.
 
@@ -355,3 +355,4 @@ The README walks through both with screenshots.
 - Problems saved locally in SQLite for resume.
 - Not a commercial product for now.
 - Hidden-answer protection is against accidental AI leaks, not determined users; the answer is stored locally in plain form.
+- 2026-09-28: N4 amended. Explaining is required only after a mistake; correct answers (including the final answer) are otherwise accepted immediately. Reason: being made to explain a correct answer felt like the app refusing to accept it.

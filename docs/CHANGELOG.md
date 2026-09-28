@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed — 2026-09-28
+- N4 amended: a correct answer is accepted and the tutor moves on immediately (a correct final answer solves the problem). A why/how check question is asked only if the learner got that step wrong first. Conceptual (AI-judged) steps follow the same rule; AI-judged wrong answers now count as attempts.
+
 ### Fixes — 2026-09-28 (first live session, `lim x→2 (8−3x+12²)`)
 - Correct answers were graded INCORRECT when they belonged to a later step or were the final answer (the tutor said "your arithmetic doesn't match" to 146). New `engine/answer_router.py` checks final answer → current step → later steps; the learner can jump ahead (0 AI calls) and is never told a correct value is wrong.
 - Equation-shaped step results (`12^2 = 144`, `8 + 144 - 3x = 152 - 3x`) now accept the plain value (`144`). Unevaluated planned results (`152 - 3(2)`) accept any equivalent form.

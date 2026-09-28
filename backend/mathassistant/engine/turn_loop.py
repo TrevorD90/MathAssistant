@@ -177,23 +177,35 @@ class TutorEngine:
             m = answer_router.route(cands, idx, steps, solution, rec.plan)
             v = m.verdict
             if v == Verdict.CORRECT:
-                # Verified by SymPy -> canned acknowledgement + the planned check
-                # question of whichever step the answer completes. 0 AI calls.
+                # Verified by SymPy. 0 AI calls either way.
                 target_idx = m.step_index if m.step_index is not None else idx
-                jumped = target_idx > idx
+                ahead = " You worked ahead of the steps." if target_idx > idx else ""
+                had_mistakes = st.get("wrong_attempts", 0) > 0
                 st["revealed"].append(m.math)
-                st.update(step_index=target_idx, phase="checking", wrong_attempts=0, step_just_started=False)
                 st["display"] = None                      # §9.2 wipe on correct step answer
+                st.update(step_index=target_idx, step_just_started=False)
+                if not had_mistakes:
+                    # N4 (amended 2026-09-28): a correct answer with no mistakes on
+                    # this step is accepted and the tutor moves straight on.
+                    st["phase"] = "checking"              # position on the step, then advance past it
+                    return self._advance(rec, solution, reply_override=True, outcome=TurnOutcome(),
+                                         lead=ahead, answer=m.math)
+                # After a mistake: one why/how question to check understanding.
                 target_step = steps[target_idx]
+                st.update(phase="checking", wrong_attempts=0)
                 st["current_question"] = target_step["check_question"]
-                ahead = " You worked ahead of the steps." if jumped else ""
                 reply = f"{_ack(rec.level)}{ahead} {target_step['check_question']}"
                 return self._finish(rec, reply, kind="check", outcome=TurnOutcome())
             if cands.from_words and v == Verdict.INCORRECT:
                 v = Verdict.UNCHECKABLE  # numbers pulled from prose never count as a wrong attempt
             if v == Verdict.INCORRECT:
                 st["wrong_attempts"] += 1
-            notes.append(self._verdict_note(v, st, final=False, step=step))
+            conceptual = v == Verdict.UNCHECKABLE and not try_parse(step.get("result_latex") or "")
+            if conceptual:
+                notes.append(self._conceptual_note(st, steps, idx))
+                advance_if_passed = st.get("wrong_attempts", 0) == 0  # may open the next step
+            else:
+                notes.append(self._verdict_note(v, st, final=False, step=step))
         else:  # checking
             advance_if_passed = True
             if is_last:
@@ -271,13 +283,20 @@ class TutorEngine:
         if phase == "checking" and data.get("check_passed") is True:
             return self._advance(rec, solution, reply=reply, question=question, payload=payload, outcome=outcome)
 
-        if (phase == "working" and v == Verdict.UNCHECKABLE and not try_parse(step.get("result_latex") or "")
-                and data.get("learner_correct") == "yes"):
+        if phase == "working" and v == Verdict.UNCHECKABLE and not try_parse(step.get("result_latex") or ""):
             # Conceptual step judged by the AI (SymPy can't check words).
-            st["revealed"].append(text or latex)
-            st["phase"] = "checking"
-            st["display"] = None
-            st["current_question"] = step["check_question"]
+            judged = data.get("learner_correct")
+            if judged == "yes":
+                st["revealed"].append(text or latex)
+                st["display"] = None
+                if st.get("wrong_attempts", 0) == 0:
+                    st["phase"] = "checking"
+                    return self._advance(rec, solution, reply=reply, question=question, payload=payload,
+                                         outcome=outcome)
+                st.update(phase="checking", wrong_attempts=0)
+                st["current_question"] = step["check_question"]
+            elif judged == "no":
+                st["wrong_attempts"] = st.get("wrong_attempts", 0) + 1
 
         if question:
             st["current_question"] = question
@@ -359,18 +378,31 @@ class TutorEngine:
         if v == Verdict.NOT_SIMPLIFIED:
             return (f"ENGINE VERDICT: the learner's {what} is equivalent but NOT FINISHED "
                     "(they restated the expression instead of computing/simplifying it). Ask them to finish it.")
-        # UNCHECKABLE
-        if step is not None and not try_parse(step.get("result_latex") or ""):
-            return ("ENGINE: this step is conceptual; the CAS can't check it. Judge the learner's answer and set "
-                    "learner_correct. If \"yes\": acknowledge briefly and ask exactly this check question: \""
-                    + step.get("check_question", "") + "\". Otherwise give a hint.")
         return ("ENGINE: the learner did not give a checkable math answer (a question, words, or confusion). "
                 "Respond to it and guide them toward the current step with one question. learner_correct = \"n/a\".")
 
+    @staticmethod
+    def _conceptual_note(st: dict, steps: list[dict], idx: int) -> str:
+        """Engine note for a step the CAS can't check (words, not math)."""
+        base = ("ENGINE: this step is conceptual; the CAS can't check it. Judge the learner's answer and set "
+                "learner_correct (\"yes\", \"no\", or \"partial\"). If not \"yes\": give a hint. ")
+        if st.get("wrong_attempts", 0) > 0:
+            return base + ("If \"yes\": acknowledge briefly and ask exactly this check question: \""
+                           + steps[idx].get("check_question", "") + "\".")
+        if idx + 1 < len(steps):
+            nxt = steps[idx + 1]
+            return base + (f"If \"yes\": acknowledge briefly, then open step {idx + 2} ({nxt['title']}) with this "
+                           f"question: \"{nxt['first_question']}\".")
+        return base + "If \"yes\": confirm briefly in one sentence."
+
     def _advance(self, rec: ProblemRecord, solution: Solution, reply: str = "", question: str = "",
                  payload: dict | None = None, outcome: TurnOutcome | None = None,
-                 reply_override: bool = False) -> dict:
-        """Check passed -> next step, final phase, or done."""
+                 reply_override: bool = False, lead: str = "", answer: str = "") -> dict:
+        """Step done -> next step, final phase, or done.
+
+        With `reply_override` (or no model reply) the reply is canned:
+        acknowledgement + `lead` + the next step's planned question.
+        """
         st = rec.state
         steps = rec.plan["steps"]
         idx = st["step_index"]
@@ -381,18 +413,19 @@ class TutorEngine:
             st["display"] = payload  # wiped on advance; only a new-step example may replace it
             st["current_question"] = question or nxt["first_question"]
             if reply_override or not reply:
-                reply = f"{_ack(rec.level)} Step {idx + 2}: {nxt['first_question']}"
+                reply = f"{_ack(rec.level)}{lead} Step {idx + 2}: {nxt['first_question']}"
                 st["current_question"] = nxt["first_question"]
             return self._finish(rec, reply, kind="tutor", outcome=outcome)
         # Last step passed.
         if self._final_already_produced(st, solution, rec.plan):
-            done_reply = reply if (reply and not reply_override) else f"{_ack(rec.level)} You solved the problem."
+            solved = f"You solved it: ${answer}$." if answer else "You solved the problem."
+            done_reply = reply if (reply and not reply_override) else f"{_ack(rec.level)}{lead} {solved}"
             return self._complete(rec, done_reply, outcome=outcome)
         st.update(phase="final", wrong_attempts=0, step_just_started=False, display=None)
         final_q = "What's the final answer to the original problem?"
         st["current_question"] = question or final_q
         if reply_override or not reply:
-            reply = f"{_ack(rec.level)} {final_q}"
+            reply = f"{_ack(rec.level)}{lead} {final_q}"
             st["current_question"] = final_q
         return self._finish(rec, reply, kind="tutor", outcome=outcome)
 

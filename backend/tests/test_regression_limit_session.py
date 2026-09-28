@@ -102,53 +102,51 @@ def test_guard_lets_tutor_echo_what_the_learner_typed():
 def test_session_replay_correct_answers_never_graded_wrong(client, script, fake):
     view = start(client, PROBLEM)
     pid = view["id"]
-    # Step 1 is conceptual; the AI accepts it and the learner passes the check.
-    script.push(default_turn(reply="Right. Why can we substitute directly?", question="Why can we substitute directly?",
-                             learner_correct="yes"),
-                default_turn(reply="Good. What is the value of the squared term?",
-                             question="What is the value of the squared term?", check_passed=True))
-    turn(client, pid, text="a polynomial")
-    view = turn(client, pid, text="because polynomials are continuous")
+    # Step 1 is conceptual; the AI accepts it and (no mistakes) the tutor moves on.
+    script.push(default_turn(reply="Right. What is the value of the squared term?",
+                             question="What is the value of the squared term?", learner_correct="yes"))
+    view = turn(client, pid, text="a polynomial")
     assert view["step_index"] == 1 and view["phase"] == "working"
 
     # Learner skips ahead and types the substitution (step 4's result): accepted, no AI call.
     fake.calls.clear()
     view = turn(client, pid, latex="152-3(2)")
     assert fake.call_count == 0
-    assert view["step_index"] == 3 and view["phase"] == "checking"
+    assert view["step_index"] == 4 and view["phase"] == "working"
     assert "worked ahead" in tutor_texts(view)[-1]
-    assert all(s["status"] == "done" for s in view["steps"][:3])
+    assert all(s["status"] == "done" for s in view["steps"][:4])
 
-    # Check passes -> step 5 (last). Learner answers 146: that's the final answer.
-    script.push(default_turn(reply="Yes. What is the final value?", question="What is the final value?",
-                             check_passed=True))
-    view = turn(client, pid, text="because the function is continuous at 2")
-    assert view["step_index"] == 4
+    # 146 is the final answer: accepted and the problem is solved. Never "doesn't match".
     view = turn(client, pid, latex="146")
-    assert view["phase"] == "checking"
-    assert "doesn't match" not in " ".join(tutor_texts(view))
-
-    script.push(default_turn(reply="Correct, 146 is the limit. Done.", question="", check_passed=True))
-    view = turn(client, pid, text="152 minus 6 is 146 and I checked by adding back")
     assert view["status"] == "completed"
-    # The tutor was allowed to say 146 once the learner had typed it (no canned substitution).
-    assert "146" in tutor_texts(view)[-1]
+    assert "doesn't match" not in " ".join(tutor_texts(view))
+    assert tutor_texts(view)[-1] == "Correct. You solved it: $146$."
+    assert fake.call_count == 0
 
 
-def test_final_answer_early_in_prose_jumps_to_end(client, script):
+def test_wrong_then_right_asks_one_why_question(client, script):
     view = start(client, PROBLEM)
     pid = view["id"]
-    view = turn(client, pid, text="152 - 6 is 146")
-    assert view["step_index"] == 4 and view["phase"] == "checking"
+    script.push(default_turn(reply="Right. What is 12 squared?", question="?", learner_correct="yes"))
+    turn(client, pid, text="a polynomial")
+    script.push(default_turn(reply="Not quite. Try again.", question="What is 12 squared?"))
+    turn(client, pid, latex="124")
+    view = turn(client, pid, latex="144")
+    assert view["phase"] == "checking"
+    assert "How did you compute it?" in tutor_texts(view)[-1]
+
+
+def test_final_answer_early_in_prose_completes(client, script):
+    view = start(client, PROBLEM)
+    view = turn(client, view["id"], text="152 - 6 is 146")
+    assert view["status"] == "completed"
 
 
 def test_144_accepted_for_equation_shaped_step(client, script):
     view = start(client, PROBLEM)
     pid = view["id"]
-    script.push(default_turn(reply="Right. Why?", question="Why?", learner_correct="yes"),
-                default_turn(reply="Ok. What is the value of the squared term?", question="?", check_passed=True))
+    script.push(default_turn(reply="Right. What is 12 squared?", question="?", learner_correct="yes"))
     turn(client, pid, text="a polynomial")
-    turn(client, pid, text="it has no breaks")
     view = turn(client, pid, latex="144")
-    assert view["step_index"] == 1 and view["phase"] == "checking"
+    assert view["step_index"] == 2 and view["phase"] == "working"
     assert view["turn_ai_calls"] == 0

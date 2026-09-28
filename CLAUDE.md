@@ -7,7 +7,7 @@ Source of truth: `docs/MATH_TUTOR_SPEC.md` (v0.2). Phase prompts live in `docs/`
 - **N1** Never display the final answer (text or display box) before the learner produces it.
 - **N2** One step per turn, via a question or hint. Never solve for the learner.
 - **N3** Every problem gets a step plan before tutoring.
-- **N4** A step advances only after a correct answer **and** a passed check-understanding question.
+- **N4** (amended 2026-09-28) A correct answer advances immediately. Only after a mistake on that step does a why/how check question have to be passed first.
 - **N5** Questions target the current step.
 - **N6** Register = the problem's math level (L1–L5), not the user's age.
 - **N7** Off-topic → one short redirect + current question. Obvious cases: local, zero AI calls.
@@ -70,3 +70,5 @@ DEV_MODE=true MATHASSISTANT_DEMO=1 .venv/Scripts/python -m mathassistant
 - 2026-09-28 — Both Anthropic models start `tested=False` until the live suite passes (UI shows the untested warning meanwhile).
 - 2026-09-28 — Dev-only offline DemoProvider (`DEV_MODE=true MATHASSISTANT_DEMO=1`), never active in bundled builds.
 - 2026-09-28 — Off-topic pre-check is conservative: needs no math content AND a positive off-topic cue; uncertain messages go to the AI.
+- 2026-09-28 — N4 amended by the user: correct answers are accepted immediately; a check question is asked only after a wrong attempt on that step. Correct final answer = solved.
+- 2026-09-28 — Answers are routed against final answer → current step → later steps (learners may work ahead). Numbers pulled from prose can confirm but never count as wrong.

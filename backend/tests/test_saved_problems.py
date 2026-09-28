@@ -13,7 +13,8 @@ from test_tutoring import start, turn
 def test_close_and_reopen_resumes_at_same_step(client, storage, fake, tmp_path):
     view = start(client, "2x+3=7")
     pid = view["id"]
-    turn(client, pid, latex="2x=4")                      # step 1 correct -> checking phase
+    turn(client, pid, latex="2x=10")                     # a mistake...
+    turn(client, pid, latex="2x=4")                      # ...then correct -> check question
     client.close()
 
     # "Restart the app": fresh Storage + app on the same database file.

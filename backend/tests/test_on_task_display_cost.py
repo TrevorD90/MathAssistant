@@ -47,15 +47,16 @@ def test_display_shown_when_allowed_and_wiped_on_correct_answer(client, script):
                              display_title="Similar", display_items=[{"latex": "3y+1=10", "caption": "similar"}]))
     view = turn(client, pid, text="where do I start?")
     assert view["display"] and view["display"]["items"][0]["latex"] == "3y+1=10"
-    # Correct step answer -> wiped (0 AI calls).
+    # Correct step answer -> wiped (0 AI calls) and the tutor moves on.
     view = turn(client, pid, latex="2x=4")
     assert view["display"] is None
-    assert [s["status"] for s in view["steps"]] == ["current", "locked"]
+    assert [s["status"] for s in view["steps"]] == ["done", "current"]
 
 
 def test_display_wiped_on_step_advance_and_steps_persist(client, script):
     view = start(client, "2x+3=7")
     pid = view["id"]
+    turn(client, pid, latex="2x=10")        # a mistake first, so a check question follows
     turn(client, pid, latex="2x=4")
     script.push(default_turn(reply="Right. Now how do you get x by itself?", question="How do you get x alone?",
                              check_passed=True, display_keep=True))
@@ -126,12 +127,12 @@ def test_intake_is_one_ai_call(client, fake):
 def test_turn_context_is_compact(client, fake):
     view = start(client, "2x+3=7")
     for i in range(10):
-        turn(client, view["id"], text=f"hmm number {i}?")
+        turn(client, view["id"], text=f"hmm number {i + 10}?")
     last = fake.calls[-1]
     content = last.messages[0]["content"]
     assert len(last.messages) == 1
-    assert "hmm number 0?" not in content          # old turns not sent
-    assert "hmm number 9?" in content
+    assert "hmm number 10?" not in content         # old turns not sent
+    assert "hmm number 19?" in content
 
 
 def test_resume_makes_zero_ai_calls(client, fake):
