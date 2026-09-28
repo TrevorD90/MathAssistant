@@ -43,6 +43,7 @@ interface AppState {
   deleteProblem: (id: string) => Promise<void>;
   deleteAll: () => Promise<number>;
   setModel: (provider: string, model: string) => Promise<void>;
+  setUpdateCheck: (enabled: boolean) => Promise<void>;
   testKey: (provider: string, model: string, key?: string) => Promise<boolean>;
   removeKey: (provider: string) => Promise<void>;
   quit: () => Promise<void>;
@@ -168,6 +169,11 @@ export const useApp = create<AppState>((set, get) => {
 
     setModel: async (provider, model) => {
       const status = await run(() => api.setModel(provider, model));
+      if (status) set({ status });
+    },
+
+    setUpdateCheck: async (enabled) => {
+      const status = await run(() => api.setUpdateCheck(enabled));
       if (status) set({ status });
     },
 

@@ -340,8 +340,8 @@ The README walks through both with screenshots.
 1. App name.
 2. ~~Level override~~ — **Decided: none; level is fully automatic.**
 3. ~~Repo visibility~~ — **Decided: public.**
-4. Mac build: universal app vs separate Apple Silicon / Intel downloads (Phase 3).
-5. Update check on by default?
+4. ~~Mac build~~ — **Decided: separate Apple Silicon and Intel downloads** (2026-09-28).
+5. ~~Update check default~~ — **Decided: on by default, can be turned off in Settings** (2026-09-28).
 6. ~~License~~ — **Decided: MIT.** A future commercial version would be a separate product.
 
 ### Decision log

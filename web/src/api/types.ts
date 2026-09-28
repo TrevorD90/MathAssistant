@@ -18,6 +18,9 @@ export interface Status {
   known_model: boolean;
   capabilities: Capabilities;
   dev_mode: boolean;
+  version: string;
+  update_check: boolean;
+  update: { checked: boolean; available: boolean; latest: string; url: string };
 }
 
 export interface ModelInfo {

@@ -36,6 +36,9 @@ cd web && npm install
 # run (builds web if stale, starts server on 127.0.0.1, opens browser)
 .venv/Scripts/python -m mathassistant
 
+# build the downloadable app for this OS (see docs/DEVELOPING.md)
+.venv/Scripts/python packaging/build.py
+
 # tests
 .venv/Scripts/python -m pytest backend/tests          # offline suite (live tests deselected)
 .venv/Scripts/python -m pytest backend/tests/live -m live -s   # real API, costs a little
@@ -51,7 +54,7 @@ DEV_MODE=true MATHASSISTANT_DEMO=1 .venv/Scripts/python -m mathassistant
 |---|---|
 | 1 — Core loop (dev mode) | Built 2026-09-28; awaiting live acceptance run with a real key |
 | 2 — Image/PDF input | Built 2026-09-28 (camera, upload, paste, PDF, crop, vision, confirm); live camera + real-vision check pending |
-| 3 — Packaging | Not started |
+| 3 — Packaging | Built 2026-09-28 (Windows local build verified; macOS via CI); v0.3.0 release pending |
 | 4 — Richer visuals | Not started |
 | 5 — More providers | Not started |
 
@@ -71,6 +74,8 @@ DEV_MODE=true MATHASSISTANT_DEMO=1 .venv/Scripts/python -m mathassistant
 - 2026-09-28 — Dev-only offline DemoProvider (`DEV_MODE=true MATHASSISTANT_DEMO=1`), never active in bundled builds.
 - 2026-09-28 — Off-topic pre-check is conservative: needs no math content AND a positive off-topic cue; uncertain messages go to the AI.
 - 2026-09-28 — N4 amended by the user: correct answers are accepted immediately; a check question is asked only after a wrong attempt on that step. Correct final answer = solved.
+- 2026-09-28 — Phase 3 approved and built. Mac: separate Apple Silicon (macos-15) and Intel (macos-15-intel) builds, not universal2 (§15 #4). Update check ON by default, toggle in Settings (§15 #5). Windows ships as a zipped onedir folder (no installer; faster start than onefile, fewer AV false positives). Control window via tkinter (stdlib). pystray rejected (LGPL). UPX off.
+- 2026-09-28 — Haiku 4.5 marked tested after the user's live acceptance run; Sonnet 5 still untested.
 - 2026-09-28 — Worksheets: vision lists all problems (≤20/image); learner picks one; the rest go to "Up next" (queued_problems table, migration v3, no AI cost until started). PDF "Read all pages" ≤10 pages.
 - 2026-09-28 — Phase 2 approved and built. Fixed default port 51789 (user choice) so camera permission persists; fallback to a free port.
 - 2026-09-28 — Vision extraction is transcription only (never solves); result must be confirmed by the learner before the intake call. Images never stored/logged.

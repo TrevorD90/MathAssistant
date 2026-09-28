@@ -99,10 +99,18 @@ Prompt order for caching: fixed system prompt → per-problem context (both `cac
 - `components/DisplayBox.tsx`, `TutorScreen.tsx`, `ProblemsScreen.tsx`, `Settings.tsx`.
 - Phase 2: `capture/image.ts` (crop, downscale, encode, clipboard), `capture/pdf.ts` (pdf.js, lazy-loaded), `components/capture/` (`CaptureFlow`, `CameraView`, `Cropper`, `ProblemPicker`). The server listens on port 51789 by default so camera permission persists.
 
+## Packaging (Phase 3)
+
+- `packaging/build.py`: web build → icon (`make_icon.py`) → PyInstaller (`mathassistant.spec`) → `--self-test` of the built app → zip in `release/`.
+- `packaging/launcher.py`: entry point (same as `python -m mathassistant`).
+- `server.run()`: in bundled builds shows `control_window.py` (tkinter) on the main thread and runs Uvicorn in a thread; closing the window stops the server. `instance.py` keeps one copy running; `updates.py` is the optional launch-time update check.
+- CI: `.github/workflows/release.yml` (Windows, macOS arm64, macOS x86_64; publishes on `v*` tags).
+
 ## Data locations
 
 - Database: `platformdirs.user_data_dir("mathassistant")/mathassistant.sqlite3` (Windows: `%LOCALAPPDATA%\mathassistant`).
 - Logs: `platformdirs.user_log_dir("mathassistant")` (rotating, redacted).
+- `session.json` (port + token of the running copy; removed on exit) in the data folder.
 - Key: OS credential store, service `mathassistant`, user `anthropic-api-key`.
 
 ## Dev-only switches

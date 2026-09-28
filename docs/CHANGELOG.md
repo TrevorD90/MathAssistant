@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-09-28
+
+### Phase 3 — Packaging
+- **Downloadable apps** built with PyInstaller: Windows (zip with `MathAssistant.exe`), macOS Apple Silicon and macOS Intel (`MathAssistant.app`). No Python or Node needed. Built on GitHub Actions (`.github/workflows/release.yml`), which runs every test and a self-test of each built app, and publishes a GitHub Release when a `v*` tag is pushed.
+- **Control window** ("MathAssistant is running · Open · Quit", tkinter): closing it stops the server (spec §3.1). The browser's Quit button closes it too.
+- **One copy at a time:** a second launch reopens the running copy in the browser (`session.json` in the data folder).
+- **Update check** (spec §12.4): on launch, asks the GitHub Releases API for the latest version and shows a banner with a download link. On by default; **Settings → Updates** turns it off.
+- `--self-test` flag for built apps (server, API, web page, math engine; no AI calls).
+- Windowed builds: no console needed (stdout/stderr guarded; Uvicorn uses our redacting logging).
+- Missing static files now return 404 instead of the app page; font MIME types registered.
+- Claude Haiku 4.5 marked **tested** after passing the live acceptance run.
+- **README rewritten for families** (download, first-run warnings on Windows/Mac, getting a key, using every feature, cost, privacy, updating, removing, troubleshooting). Developer material moved to `docs/DEVELOPING.md`.
+
+## Unreleased (pre-0.3.0 history)
 
 ### Added — 2026-09-28: worksheets with several problems
 - The vision call now lists **every problem** in the image (up to 20, reading order, printed labels, never solved). One problem → straight to confirm; several → a **picker** to choose which to start with.

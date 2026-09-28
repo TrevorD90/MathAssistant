@@ -3,9 +3,10 @@
 A model is "tested" once it passes the §14 acceptance tests against the live
 API (`backend/tests/live/`). Untested models are allowed behind a warning.
 
-[DECISION: both Anthropic models start as untested. Neither has been run
-through the live acceptance suite yet (it needs a real key). Flip `tested`
-after `pytest backend/tests/live` passes for that model.]
+Haiku 4.5 passed the live acceptance run (2026-09-28, reported by the user).
+[ASSUMPTION: that run used the default model; Sonnet 5 stays untested until
+`MATHASSISTANT_LIVE_MODEL=claude-sonnet-5 pytest backend/tests/live -m live`
+passes.]
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ PROVIDERS: dict[str, ProviderInfo] = {
         label="Anthropic (Claude)",
         key_url="https://console.anthropic.com/settings/keys",
         models=(
-            ModelInfo("claude-haiku-4-5", "Claude Haiku 4.5 (lowest cost)", tested=False,
+            ModelInfo("claude-haiku-4-5", "Claude Haiku 4.5 (lowest cost)", tested=True,
                       note="Default. $1 / $5 per million tokens in/out."),
             ModelInfo("claude-sonnet-5", "Claude Sonnet 5", tested=False,
                       note="Stronger explanations. $2 / $10 per million tokens in/out."),

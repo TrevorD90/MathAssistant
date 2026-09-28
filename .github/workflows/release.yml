@@ -1,0 +1,121 @@
+# Build the downloadable apps (spec §12). PyInstaller doesn't cross-compile,
+# so each OS builds on its own runner. The repo is public, so these standard
+# GitHub-hosted runners are free.
+#
+#   Run manually (Actions tab -> "Build & release" -> Run workflow): builds and
+#   tests all three apps; the zips appear as run artifacts. Nothing is published.
+#
+#   Push a version tag to publish a GitHub Release with the three zips:
+#       git tag v0.3.0 && git push origin v0.3.0
+#   The tag must match __version__ in backend/mathassistant/__init__.py.
+
+name: Build & release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows
+          - os: macos-15            # Apple Silicon (arm64)
+            label: Mac Apple Silicon
+          - os: macos-15-intel      # Intel (x86_64)
+            label: Mac Intel
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "backend[dev,package]"
+
+      - name: Check tkinter (the app's control window needs it)
+        run: python -c "import tkinter; print('Tk', tkinter.TkVersion)"
+
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          VERSION=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('backend/mathassistant/__init__.py').read()).group(1))")
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match __version__ $VERSION"; exit 1
+          fi
+
+      - name: Web app: install, test, build
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Backend tests
+        # live = real AI calls (needs a key); keyring = touches the runner's credential store.
+        run: python -m pytest backend/tests -q -m "not live and not keyring"
+
+      - name: Build the app (PyInstaller + self-test + zip)
+        run: python packaging/build.py --skip-web
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MathAssistant-${{ matrix.os }}
+          path: release/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          ## Download
+
+          | Your computer | File |
+          |---|---|
+          | Windows 10 / 11 | `MathAssistant-…-windows.zip` |
+          | Mac with Apple chip (M1, M2, M3, M4…) | `MathAssistant-…-macos-apple-silicon.zip` |
+          | Mac with Intel chip | `MathAssistant-…-macos-intel.zip` |
+
+          Not sure which Mac you have?  menu → **About This Mac** → look at **Chip** (Apple) or **Processor** (Intel).
+
+          First time? Follow the **Getting started** steps in the [README](https://github.com/${{ github.repository }}#getting-started): the app isn't code-signed, so Windows and macOS show a one-time warning.
+
+          Updating: download the new file and replace your old copy. Your saved problems and API key are kept.
+          EOF
+          gh release create "$GITHUB_REF_NAME" release/*.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "MathAssistant ${GITHUB_REF_NAME#v}" \
+            --notes-file notes.md

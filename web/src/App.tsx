@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "./store/app";
 import { TutorScreen } from "./components/TutorScreen";
 import { ProblemsScreen } from "./components/ProblemsScreen";
@@ -6,6 +6,7 @@ import { Settings } from "./components/Settings";
 
 export function App({ hasToken }: { hasToken: boolean }) {
   const { screen, go, status, error, clearError, init, quit, stopped } = useApp();
+  const [hideUpdate, setHideUpdate] = useState(false); // hooks before any early return
 
   useEffect(() => {
     if (hasToken) void init();
@@ -39,6 +40,16 @@ export function App({ hasToken }: { hasToken: boolean }) {
         <span className="spacer" />
         <button className="quit" onClick={() => { if (window.confirm("Quit MathAssistant?")) void quit(); }}>Quit</button>
       </nav>
+      {status?.update.available && !hideUpdate && (
+        <div className="notice update" role="status">
+          <span>
+            <strong>A new version of MathAssistant is available ({status.update.latest}).</strong>{" "}
+            <a href={status.update.url} target="_blank" rel="noopener noreferrer">Download it</a>, then replace
+            this copy. Your problems and key are kept.
+          </span>
+          <button className="ghost" onClick={() => setHideUpdate(true)} aria-label="Dismiss">✕</button>
+        </div>
+      )}
       {error && (
         <div className="error" role="alert">
           {error} <button className="ghost" onClick={clearError} aria-label="Dismiss">✕</button>

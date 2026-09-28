@@ -27,6 +27,9 @@ mimetypes.add_type("text/javascript", ".mjs")
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("application/wasm", ".wasm")
 mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("font/woff2", ".woff2")
+mimetypes.add_type("font/woff", ".woff")
+mimetypes.add_type("font/ttf", ".ttf")
 
 
 def create_app(*, token: str, port_getter: Callable[[], int], storage: Storage | None = None,
@@ -61,6 +64,9 @@ def create_app(*, token: str, port_getter: Callable[[], int], storage: Storage |
             candidate = (dist / path).resolve()
             if path and candidate.is_file() and dist.resolve() in candidate.parents:
                 return FileResponse(candidate)
+            if "." in Path(path).name:
+                # A missing file (font, script...) is a 404, not the app page.
+                return JSONResponse({"error": "not_found", "message": "Not found"}, status_code=404)
             return FileResponse(dist / "index.html")
     else:
         @app.get("/", include_in_schema=False)

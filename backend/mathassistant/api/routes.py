@@ -75,6 +75,18 @@ def set_model(body: ModelBody, request: Request):
     return _svc(request).status()
 
 
+class UpdateCheckBody(BaseModel):
+    enabled: bool
+
+
+@router.post("/settings/updates")
+def set_update_check(body: UpdateCheckBody, request: Request):
+    """Turn the launch-time update check on/off (takes effect next launch)."""
+    svc = _svc(request)
+    svc.set_update_check(body.enabled)
+    return svc.status()
+
+
 @router.post("/key/test")
 def test_key(body: KeyTestBody, request: Request):
     svc = _svc(request)

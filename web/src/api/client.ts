@@ -63,6 +63,7 @@ export const api = {
   providers: () => request<ProvidersResponse>("GET", "/api/providers"),
   setModel: (provider: string, model: string) =>
     request<Status>("POST", "/api/settings/model", { provider, model }),
+  setUpdateCheck: (enabled: boolean) => request<Status>("POST", "/api/settings/updates", { enabled }),
   testKey: (provider: string, model: string, key?: string) =>
     request<{ ok: boolean; status: Status }>("POST", "/api/key/test", { provider, model, key: key || null }),
   removeKey: (provider: string) =>

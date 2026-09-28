@@ -246,7 +246,9 @@ def test_services_status_shape(storage, fake):
     s = Services(storage, provider_factory=lambda: fake)
     st = s.status()
     assert st["model"] == "claude-haiku-4-5"
-    assert st["untested_warning"]
+    assert st["tested"] is True and st["untested_warning"] is None      # passed the live run
+    s.set_model("anthropic", "claude-sonnet-5")
+    assert s.status()["untested_warning"]                               # not yet live-tested
 
 
 def test_demo_provider_only_in_dev_mode(storage, monkeypatch):

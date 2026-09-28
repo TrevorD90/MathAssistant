@@ -10,7 +10,8 @@ import threading
 import time
 from typing import Callable
 
-from . import key_store
+from . import __version__, key_store
+from .updates import UpdateChecker
 from .engine import extract as extract_mod
 from .engine.turn_loop import TutorEngine, TutorError
 from .providers import registry
@@ -24,6 +25,7 @@ S_PROVIDER = "provider"
 S_MODEL = "model"
 S_KEY_OK = "key_verified"          # "1" after a successful Test key for provider+model
 S_CAPS = "capabilities_json"
+S_UPDATE_CHECK = "update_check"    # "1" (default) or "0" (§12.4)
 
 
 class Services:
@@ -46,6 +48,7 @@ class Services:
         # Vision-call usage waiting to be added to the problem it becomes
         # (extraction_id -> (Usage, created_at)). In memory only; no image data.
         self._pending_usage: dict[str, tuple[Usage, float]] = {}
+        self.updates = UpdateChecker()
         self._pending_lock = threading.Lock()
 
     # ------------------------------------------------------------ settings
@@ -78,6 +81,12 @@ class Services:
         if changed:
             # A different model must pass Test key again (capability probe).
             self.storage.set_setting(S_KEY_OK, "0")
+
+    def update_check_enabled(self) -> bool:
+        return self.storage.get_setting(S_UPDATE_CHECK, "1") == "1"
+
+    def set_update_check(self, enabled: bool) -> None:
+        self.storage.set_setting(S_UPDATE_CHECK, "1" if enabled else "0")
 
     def key_verified(self) -> bool:
         return self.storage.get_setting(S_KEY_OK) == "1"
@@ -200,4 +209,7 @@ class Services:
             "known_model": registry.model_info(provider, model) is not None,
             "capabilities": self.capabilities().__dict__,
             "dev_mode": self.dev_mode,
+            "version": __version__,
+            "update_check": self.update_check_enabled(),
+            "update": self.updates.info.to_dict(),
         }

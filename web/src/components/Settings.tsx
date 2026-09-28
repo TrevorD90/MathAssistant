@@ -24,7 +24,7 @@ function Onboarding({ keyUrl }: { keyUrl: string }) {
 }
 
 export function Settings() {
-  const { status, providers, problem, busy, setModel, testKey, removeKey, deleteAll } = useApp();
+  const { status, providers, problem, busy, setModel, testKey, removeKey, deleteAll, setUpdateCheck } = useApp();
   const [provider, setProvider] = useState(status?.provider ?? "anthropic");
   const [model, setModelLocal] = useState(status?.model ?? "claude-haiku-4-5");
   const [custom, setCustom] = useState(false);
@@ -129,6 +129,16 @@ export function Settings() {
       ) : (
         <p className="muted">Open a problem to see its usage.</p>
       )}
+
+      <h2>Updates</h2>
+      <label className="check">
+        <input type="checkbox" checked={status.update_check} disabled={busy}
+               onChange={(e) => void setUpdateCheck(e.target.checked)} />
+        Check for a new version when MathAssistant starts
+      </label>
+      <p className="muted small">
+        Only asks GitHub for the latest version number; nothing about you is sent. You're on version {status.version}.
+      </p>
 
       <h2>Saved problems</h2>
       <button className="danger" disabled={busy} onClick={async () => {

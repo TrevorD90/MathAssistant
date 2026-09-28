@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mathassistant"
-version = "0.1.0"
+version = "0.3.0"
 description = "Local, math-only Socratic tutor (bring your own AI key)."
 license = "MIT"
 requires-python = ">=3.12"
@@ -25,6 +25,11 @@ dependencies = [
 dev = [
     "pytest>=8",              # MIT
     "httpx>=0.27",            # BSD-3 (FastAPI TestClient)
+]
+# Build-time only (never shipped inside the app).
+package = [
+    "pyinstaller>=6.10",      # GPL-2.0+ with bootloader exception: bundled apps may use any license (spec §3.2)
+    "pillow>=10.1",           # MIT-CMU: draws/converts the app icon
 ]
 
 [tool.setuptools.packages.find]

@@ -43,3 +43,6 @@ logs/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Packaged app downloads (packaging/build.py)
+release/

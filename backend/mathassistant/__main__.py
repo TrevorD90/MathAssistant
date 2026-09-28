@@ -6,6 +6,7 @@ then starts the local server and opens the browser.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -38,8 +39,17 @@ def _build_web() -> None:
 
 
 def main() -> None:
+    # Windowed (no-console) builds have no stdout/stderr; give libraries a sink.
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")  # noqa: SIM115 - process lifetime
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")  # noqa: SIM115
     config = load_config()
     setup_logging()
+    if "--self-test" in sys.argv:
+        from .server import self_test
+
+        sys.exit(self_test())
     if not is_frozen() and "--no-build" not in sys.argv and _web_is_stale():
         _build_web()
     from .server import run

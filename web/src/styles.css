@@ -99,6 +99,8 @@ main.center { max-width: 520px; margin: 15vh auto; text-align: center; }
 .entry-switch { margin: 0.4rem 0 0.8rem; }
 .image-sources { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.6rem 0 0.4rem; }
 .notice.confirm { margin: 0.6rem 0; }
+.notice.update { margin: 0.6rem 1rem; }
+.notice a { color: inherit; font-weight: 600; }
 .picker-list { list-style: none; margin: 0.6rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .picker-item { width: 100%; display: grid; grid-template-columns: 3.2rem 1fr auto; gap: 0.8rem; align-items: center; text-align: left; }
 .picker-label { font-weight: 700; color: var(--accent); }
