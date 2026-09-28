@@ -143,3 +143,25 @@ def test_migration_v1_to_v2_keeps_existing_problems(tmp_path):
     assert rec is not None and rec.problem_kind == "math" and rec.title == "Old"
     with sqlite3.connect(path) as c:
         assert migrations.current_version(c) == 2
+
+
+MONEY = "Sam has $5 and buys a toy for $2. How much money does Sam have left?"
+PLANS[MONEY] = {
+    "level": 1, "title": "Money left", "final_answer_latex": "3", "math_formulation_latex": "5-2",
+    "steps": [{"title": "Take away the cost", "goal": "Subtract.", "result_latex": "3",
+               "first_question": "How much did the toy cost?", "check_question": "Why subtract?",
+               "safe_hint": "Start with the money Sam had."}],
+}
+
+
+def test_money_is_not_math_markup():
+    from mathassistant.engine.leak_guard import extract_segments
+
+    assert extract_segments("Sam has $5 and buys a toy for $2.") == []
+    assert extract_segments(r"So $2x\cos(x^2)$ it is") == [r"2x\cos(x^2)"]
+
+
+def test_money_word_problem_answer_with_dollar_sign(client):
+    view = start_words(client, MONEY)
+    view = turn(client, view["id"], text="$3")
+    assert view["status"] == "completed"

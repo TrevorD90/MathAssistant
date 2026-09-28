@@ -79,7 +79,7 @@ INTAKE_SCHEMA: dict = {
 
 def intake_user_message(problem_latex: str, verified_answer_latex: str | None, problem_kind: str = "math") -> str:
     if problem_kind == "words":
-        lines = [f"PROBLEM (word problem, plain text; math may appear between $ signs): {problem_latex}"]
+        lines = [f"PROBLEM (word problem, plain text; a $ usually means dollars): {problem_latex}"]
     else:
         lines = [f"PROBLEM (LaTeX): {problem_latex}"]
     if problem_kind == "words":

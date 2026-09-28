@@ -89,7 +89,9 @@ def number_words(n: int) -> list[str]:
 
 _NUM_RE = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?:\s*/\s*\d+)?(?![\w.]*\d)")
 _FRAC_RE = re.compile(r"\\[dt]?frac\{\s*(-?\d+)\s*\}\{\s*(\d+)\s*\}")
-_LATEX_SEG_RE = re.compile(r"\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]", re.S)
+# Inline $...$ uses the Pandoc rule (same as the frontend) so money like
+# "$5 and $2" is not read as math.
+_LATEX_SEG_RE = re.compile(r"\$\$(.+?)\$\$|(?<!\\)\$(?=\S)([^$]*?\S)\$(?!\d)|\\\((.+?)\\\)|\\\[(.+?)\\\]", re.S)
 
 # Plain-text math runs: digits, single letters, operators, brackets, function names.
 _FUNC_WORDS = ("arcsin", "arccos", "arctan", "sin", "cos", "tan", "sec", "csc", "cot",

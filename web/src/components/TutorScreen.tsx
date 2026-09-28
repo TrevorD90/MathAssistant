@@ -34,7 +34,7 @@ function ProblemEntry() {
         </>
       ) : (
         <>
-          <p className="muted">Type or paste the word problem. You can put math between $ signs, like $3x+5$.</p>
+          <p className="muted">Type or paste the word problem exactly as it's written.</p>
           <textarea className="word-problem" value={text} maxLength={2000} rows={5} autoFocus
                     aria-label="Word problem"
                     placeholder="e.g. Sam has 3 bags with 12 apples in each bag. How many apples does Sam have?"

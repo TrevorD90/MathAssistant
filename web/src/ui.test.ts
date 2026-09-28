@@ -14,6 +14,16 @@ describe("splitMath", () => {
   it("leaves unclosed dollars as text", () => {
     expect(splitMath("costs $5 today")).toEqual([{ math: false, text: "costs $5 today" }]);
   });
+  it("treats money as text, not math (word problems)", () => {
+    for (const s of ["Sam has $5 and buys a $2 toy.", "It costs $4.50 or $6.", "between $2 and $3", "a $ 5 bill $"]) {
+      expect(splitMath(s).every((p) => !p.math)).toBe(true);
+    }
+  });
+  it("still finds real inline math", () => {
+    expect(splitMath("Solve $3x+5=20$ now").filter((p) => p.math).map((p) => p.text)).toEqual(["3x+5=20"]);
+    expect(splitMath("Let $x$ be $2$.").filter((p) => p.math).map((p) => p.text)).toEqual(["x", "2"]);
+    expect(splitMath("You have $5, so $5-2$ is left").filter((p) => p.math).map((p) => p.text)).toEqual(["5-2"]);
+  });
 });
 
 describe("renderLatex", () => {

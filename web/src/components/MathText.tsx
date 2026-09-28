@@ -12,8 +12,12 @@ export interface Segment {
 }
 
 // Split on $$...$$, $...$, \(...\), \[...\]. Unclosed delimiters stay as text.
+// Inline $...$ follows the Pandoc rule so money isn't mistaken for math: the
+// opening $ must be followed by a non-space, the closing $ must follow a
+// non-space and must not be followed by a digit, and \$ is a literal dollar.
+// "$3x+5$" is math; "Sam has $5 and buys a $2 toy" stays text.
 export function splitMath(input: string): Segment[] {
-  const re = /\$\$([\s\S]+?)\$\$|\$([^$]+?)\$|\\\(([\s\S]+?)\\\)|\\\[([\s\S]+?)\\\]/g;
+  const re = /\$\$([\s\S]+?)\$\$|(?<!\\)\$(?=\S)([^$]*?\S)\$(?!\d)|\\\(([\s\S]+?)\\\)|\\\[([\s\S]+?)\\\]/g;
   const out: Segment[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
