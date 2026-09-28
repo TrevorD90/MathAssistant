@@ -1,0 +1,45 @@
+# --- Secrets / local config (never commit) ---
+.env
+.env.*
+!.env.example
+
+# --- Local databases (user data lives in platformdirs, but guard dev copies) ---
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Node / frontend ---
+node_modules/
+web/dist/
+*.tsbuildinfo
+
+# --- Build output (PyInstaller, Phase 3) ---
+build/
+dist/
+*.spec.bak
+
+# --- Logs ---
+*.log
+logs/
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
