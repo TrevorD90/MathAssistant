@@ -54,7 +54,7 @@ DEV_MODE=true MATHASSISTANT_DEMO=1 .venv/Scripts/python -m mathassistant
 |---|---|
 | 1 — Core loop (dev mode) | Built 2026-09-28; awaiting live acceptance run with a real key |
 | 2 — Image/PDF input | Built 2026-09-28 (camera, upload, paste, PDF, crop, vision, confirm); live camera + real-vision check pending |
-| 3 — Packaging | Built 2026-09-28 (Windows local build verified; macOS via CI); v0.3.0 release pending |
+| 3 — Packaging | Done — v0.3.0 released 2026-09-28 |
 | 4 — Richer visuals | Not started |
 | 5 — More providers | Not started |
 
