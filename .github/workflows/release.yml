@@ -63,7 +63,7 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match __version__ $VERSION"; exit 1
           fi
 
-      - name: Web app: install, test, build
+      - name: "Web app: install, test, build"
         working-directory: web
         run: |
           npm ci
