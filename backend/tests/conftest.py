@@ -95,7 +95,7 @@ class Script:
     def __call__(self, req):
         if req.purpose == "intake":
             msg = req.messages[0]["content"]
-            problem = re.search(r"PROBLEM \(LaTeX\): (.*)", msg).group(1).strip()
+            problem = re.search(r"PROBLEM \([^)]*\): (.*)", msg).group(1).strip()
             return PLANS.get(problem, PLANS["2(x+1)+0"])
         if req.purpose == "probe":
             return {"ok": True}

@@ -14,13 +14,14 @@ RECENT_TURNS = 6          # transcript entries sent to the model
 TRANSCRIPT_KEEP = 24      # entries kept in the DB (for the on-screen conversation)
 
 
-def problem_context(problem_latex: str, level: int, plan: dict) -> str:
+def problem_context(problem_latex: str, level: int, plan: dict, problem_kind: str = "math") -> str:
     """Per-problem block. Contains step results: it is internal (never shown)."""
     lines = [
         "PROBLEM CONTEXT (internal; never quote results to the learner)",
-        f"Problem: {problem_latex}",
+        f"Problem ({'word problem' if problem_kind == 'words' else 'LaTeX'}): {problem_latex}",
         f"Level: {prompts.LEVEL_REGISTER.get(level, prompts.LEVEL_REGISTER[3])}",
         f"Final answer (hidden): {plan.get('final_answer_latex', '')}",
+        *([f"Math formulation (hidden): {plan['math_formulation_latex']}"] if plan.get("math_formulation_latex") else []),
         "Step plan:",
     ]
     for i, s in enumerate(plan.get("steps", []), start=1):

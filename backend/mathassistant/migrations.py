@@ -37,6 +37,11 @@ MIGRATIONS: list[str] = [
         value TEXT NOT NULL
     );
     """,
+    # v2 — word problems (2026-09-28). Existing rows are math problems.
+    """
+    ALTER TABLE problems ADD COLUMN problem_kind TEXT NOT NULL DEFAULT 'math'
+        CHECK (problem_kind IN ('math', 'words'));
+    """,
 ]
 
 

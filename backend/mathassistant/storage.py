@@ -40,6 +40,7 @@ class ProblemRecord:
     tokens_in: int = 0
     tokens_out: int = 0
     ai_calls: int = 0
+    problem_kind: str = "math"          # "math" (LaTeX) | "words" (word problem text)
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
 
@@ -77,8 +78,8 @@ class Storage:
                 """
                 INSERT INTO problems (id, title, problem_latex, level, plan_json, solution_json,
                     state_json, transcript_json, summary, status, tokens_in, tokens_out, ai_calls,
-                    created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    problem_kind, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     title=excluded.title, level=excluded.level, plan_json=excluded.plan_json,
                     solution_json=excluded.solution_json, state_json=excluded.state_json,
@@ -91,7 +92,7 @@ class Storage:
                     rec.id, rec.title, rec.problem_latex, rec.level,
                     json.dumps(rec.plan), json.dumps(rec.solution), json.dumps(rec.state),
                     json.dumps(rec.transcript), rec.summary, rec.status,
-                    rec.tokens_in, rec.tokens_out, rec.ai_calls, rec.created_at, rec.updated_at,
+                    rec.tokens_in, rec.tokens_out, rec.ai_calls, rec.problem_kind, rec.created_at, rec.updated_at,
                 ),
             )
 
@@ -104,7 +105,7 @@ class Storage:
         """Summaries for the My problems screen: in progress and completed, newest first."""
         with self._conn() as conn:
             rows = conn.execute(
-                "SELECT id, title, problem_latex, level, status, created_at, updated_at "
+                "SELECT id, title, problem_latex, problem_kind, level, status, created_at, updated_at "
                 "FROM problems ORDER BY updated_at DESC"
             ).fetchall()
         out: dict[str, list[dict]] = {"in_progress": [], "completed": []}
@@ -131,7 +132,7 @@ class Storage:
             solution=json.loads(row["solution_json"]), state=json.loads(row["state_json"]),
             transcript=json.loads(row["transcript_json"]), summary=row["summary"],
             status=row["status"], tokens_in=row["tokens_in"], tokens_out=row["tokens_out"],
-            ai_calls=row["ai_calls"], created_at=row["created_at"], updated_at=row["updated_at"],
+            ai_calls=row["ai_calls"], problem_kind=row["problem_kind"], created_at=row["created_at"], updated_at=row["updated_at"],
         )
 
     # ------------------------------------------------------------ settings

@@ -96,6 +96,12 @@ main.center { max-width: 520px; margin: 15vh auto; text-align: center; }
 /* ---------- entry ---------- */
 .entry { max-width: 720px; margin: 8vh auto 0; }
 .entry math-field { font-size: 1.7rem; }
+.entry-switch { margin: 0.4rem 0 0.8rem; }
+.word-problem {
+  width: 100%; font: inherit; font-size: 1.1rem; line-height: 1.5; padding: 0.6rem 0.8rem; color: var(--text);
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px; resize: vertical;
+}
+.word-problem-text { margin: 0.2rem 0 0; font-size: 1.05rem; line-height: 1.5; }
 
 /* ---------- tutor ---------- */
 .tutor { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1rem; max-width: 1200px; margin: 0 auto; }

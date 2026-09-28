@@ -40,7 +40,8 @@ FastAPI (security middleware → routes → Services)
 | `engine/leak_guard.py` | Number, number-word, assertion, expression-equivalence and text scans |
 | `engine/intent.py` | Conservative off-topic pre-check + canned redirect |
 | `engine/display.py` | `latex` payload schema, §9.1 gating, `steps` checklist |
-| `engine/step_planner.py` | Intake call, plan validation, SymPy-wins override, guards plan strings |
+| `engine/step_planner.py` | Intake call, plan validation, SymPy-wins override, guards plan strings. Word problems: SymPy solves the model's `math_formulation_latex` |
+| `engine/answer_router.py` | Routes an answer to final / current / later step; reads chains, prose and units |
 | `engine/turn_loop.py` | The state machine (working → checking → final → done) |
 | `engine/prompts.py` | System prompts, JSON schemas, token caps |
 | `engine/context_builder.py` | Per-problem context block, code-built summary, last 6 turns |

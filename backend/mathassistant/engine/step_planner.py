@@ -80,13 +80,19 @@ def _generic(field_name: str, i: int, level: int) -> str:
     }[field_name]
 
 
-def run_intake(provider: LLMProvider, problem_latex: str) -> IntakeResult:
-    solution = solve_latex(problem_latex)
-    verified = solution.latex() if solution.kind != "none" else None
+def run_intake(provider: LLMProvider, problem_latex: str, problem_kind: str = "math") -> IntakeResult:
+    """`problem_kind` is "math" (LaTeX) or "words" (a word problem in plain text)."""
+    if problem_kind == "words":
+        solution = Solution(kind="none")   # solved below from the model's math formulation
+        verified = None
+    else:
+        solution = solve_latex(problem_latex)
+        verified = solution.latex() if solution.kind != "none" else None
 
     req = StructuredRequest(
         system_blocks=[prompts.INTAKE_SYSTEM],
-        messages=[{"role": "user", "content": prompts.intake_user_message(problem_latex, verified)}],
+        messages=[{"role": "user",
+                   "content": prompts.intake_user_message(problem_latex, verified, problem_kind)}],
         schema=prompts.INTAKE_SCHEMA,
         max_tokens=prompts.INTAKE_MAX_TOKENS,
         purpose="intake",
@@ -105,7 +111,16 @@ def run_intake(provider: LLMProvider, problem_latex: str) -> IntakeResult:
     if not steps:
         raise PlanError("no usable steps")
 
-    plan = {"final_answer_latex": str(data.get("final_answer_latex", "")).strip()[:200], "steps": steps}
+    formulation = str(data.get("math_formulation_latex", "") or "").strip()[:300]
+    plan = {"final_answer_latex": str(data.get("final_answer_latex", "")).strip()[:200], "steps": steps,
+            "math_formulation_latex": formulation}
+
+    # Word problems: the model translates words -> math; SymPy does the math (N8).
+    if problem_kind == "words" and formulation:
+        solution = solve_latex(formulation)
+        if solution.kind != "none":
+            verified = solution.latex()
+            log.info("intake: word problem solved by SymPy from the model's formulation (kind=%s)", solution.kind)
 
     # N8: SymPy's answer wins over the model's.
     if solution.kind != "none":

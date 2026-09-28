@@ -42,6 +42,9 @@ Also give:
 - title: a 2-6 word title for the problem list, without the answer (e.g. "Derivative of sin(x^2)").
 - final_answer_latex: the final answer as LaTeX (no $). If a VERIFIED ANSWER is provided, use exactly that.
 
+WORD PROBLEMS (plain-text problems): also give math_formulation_latex, one LaTeX expression or equation that captures the problem so a CAS can compute the answer, using only numbers and at most one unknown (e.g. "3\\times 12", "2x + 5 = 17", "\\frac{120}{4}"). Use "" if the problem can't be written that way (proofs, explanations). For LaTeX problems, set math_formulation_latex to "".
+Step results and the final answer are plain math with NO units or words ("36", not "36 apples"). Mention units in questions and hints instead.
+
 The last step's result_latex must be the final answer. Write questions and hints in the register for the level. Neutral, direct tone; no small talk, no emojis.
 """
 
@@ -51,6 +54,7 @@ INTAKE_SCHEMA: dict = {
         "level": {"type": "integer"},
         "title": {"type": "string"},
         "final_answer_latex": {"type": "string"},
+        "math_formulation_latex": {"type": "string"},
         "steps": {
             "type": "array",
             "items": {
@@ -68,14 +72,19 @@ INTAKE_SCHEMA: dict = {
             },
         },
     },
-    "required": ["level", "title", "final_answer_latex", "steps"],
+    "required": ["level", "title", "final_answer_latex", "math_formulation_latex", "steps"],
     "additionalProperties": False,
 }
 
 
-def intake_user_message(problem_latex: str, verified_answer_latex: str | None) -> str:
-    lines = [f"PROBLEM (LaTeX): {problem_latex}"]
-    if verified_answer_latex:
+def intake_user_message(problem_latex: str, verified_answer_latex: str | None, problem_kind: str = "math") -> str:
+    if problem_kind == "words":
+        lines = [f"PROBLEM (word problem, plain text; math may appear between $ signs): {problem_latex}"]
+    else:
+        lines = [f"PROBLEM (LaTeX): {problem_latex}"]
+    if problem_kind == "words":
+        lines.append("VERIFIED ANSWER: none yet (give math_formulation_latex so the CAS can compute it).")
+    elif verified_answer_latex:
         lines.append(f"VERIFIED ANSWER (computed by a CAS; treat as correct): {verified_answer_latex}")
     else:
         lines.append("VERIFIED ANSWER: none (the CAS could not solve this; work it out carefully).")

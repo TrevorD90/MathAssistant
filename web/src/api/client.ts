@@ -68,7 +68,8 @@ export const api = {
   removeKey: (provider: string) =>
     request<Status>("DELETE", `/api/key?provider=${encodeURIComponent(provider)}`),
   listProblems: () => request<ProblemList>("GET", "/api/problems"),
-  startProblem: (latex: string) => request<ProblemView>("POST", "/api/problems", { latex }),
+  // Either LaTeX (math field) or plain text (word problem).
+  startProblem: (latex: string, text = "") => request<ProblemView>("POST", "/api/problems", { latex, text }),
   getProblem: (id: string) => request<ProblemView>("GET", `/api/problems/${encodeURIComponent(id)}`),
   turn: (id: string, text: string, latex: string) =>
     request<ProblemView>("POST", `/api/problems/${encodeURIComponent(id)}/turn`, { text, latex }),

@@ -26,12 +26,15 @@ class DemoProvider(LLMProvider):
     def structured(self, req: StructuredRequest) -> StructuredResult:
         usage = Usage(input_tokens=0, output_tokens=0)
         if req.purpose == "intake":
-            problem = re.search(r"PROBLEM \(LaTeX\): (.*)", req.messages[0]["content"]).group(1).strip()
-            sol = solve_latex(problem)
+            content = req.messages[0]["content"]
+            problem = re.search(r"PROBLEM \([^)]*\): (.*)", content).group(1).strip()
+            words = "word problem" in content
+            sol = solve_latex(problem) if not words else solve_latex("")
             return StructuredResult(data={
                 "level": 3,
                 "title": "Demo problem",
                 "final_answer_latex": sol.latex() if sol.kind != "none" else "",
+                "math_formulation_latex": "",   # the demo doesn't translate word problems
                 "steps": [
                     {"title": "Understand the problem", "goal": "Say what the problem asks for.",
                      "result_latex": "", "first_question": "In your own words, what is this problem asking?",

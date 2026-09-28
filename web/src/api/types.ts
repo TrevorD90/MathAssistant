@@ -68,6 +68,7 @@ export interface ProblemView {
   id: string;
   title: string;
   problem_latex: string;
+  problem_kind: "math" | "words";
   level: number;
   status: "in_progress" | "completed";
   phase: "working" | "checking" | "final" | "done";
@@ -87,6 +88,7 @@ export interface ProblemSummary {
   id: string;
   title: string;
   problem_latex: string;
+  problem_kind: "math" | "words";
   level: number;
   status: string;
   created_at: string;

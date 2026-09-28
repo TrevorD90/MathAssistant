@@ -68,15 +68,18 @@ class TutorEngine:
 
     # ================================================================ intake
 
-    def start_problem(self, problem_latex: str) -> dict:
-        problem_latex = (problem_latex or "").strip()
+    def start_problem(self, problem_latex: str = "", problem_text: str = "") -> dict:
+        """Start from LaTeX (math field) or plain text (a word problem)."""
+        problem_text = (problem_text or "").strip()
+        problem_kind = "words" if problem_text else "math"
+        problem_latex = problem_text or (problem_latex or "").strip()
         if not problem_latex or r"\placeholder" in problem_latex:
             raise TutorError("Enter a problem first.", "empty")
         if len(problem_latex) > 2000:
             raise TutorError("That problem is too long. Enter one problem at a time.", "too_long")
         provider = self.provider_factory()
         try:
-            intake = run_intake(provider, problem_latex)
+            intake = run_intake(provider, problem_latex, problem_kind)
         except PlanError:
             raise TutorError("The AI couldn't plan this problem. Try rewording it or try again.", "plan") from None
         except ProviderError as err:
@@ -103,6 +106,7 @@ class TutorEngine:
             tokens_in=intake.usage.input_tokens + intake.usage.cache_read_tokens + intake.usage.cache_write_tokens,
             tokens_out=intake.usage.output_tokens,
             ai_calls=intake.ai_calls,
+            problem_kind=problem_kind,
         )
         rec.summary = context_builder.summary(rec.plan, rec.state)
         self.storage.save_problem(rec)
@@ -144,7 +148,9 @@ class TutorEngine:
 
         # ---- 1. Local off-topic pre-check (no AI call) -------------------
         if not latex:
-            vocab = intent.problem_vocabulary(*(s.get("title", "") + " " + s.get("goal", "") for s in steps))
+            # Words from the problem itself are never off-topic ("the dogs" in a dog word problem).
+            vocab = intent.problem_vocabulary(rec.problem_latex,
+                                              *(s.get("title", "") + " " + s.get("goal", "") for s in steps))
             if intent.is_obviously_off_topic(text, vocab):
                 reply = intent.redirect_message(idx + 1, st["current_question"])
                 return self._finish(rec, reply, kind="redirect", outcome=TurnOutcome())
@@ -237,7 +243,8 @@ class TutorEngine:
 
         # ---- 3. One AI call ---------------------------------------------
         provider = self.provider_factory()
-        system_blocks = [prompts.TURN_SYSTEM, context_builder.problem_context(rec.problem_latex, rec.level, rec.plan)]
+        system_blocks = [prompts.TURN_SYSTEM,
+                         context_builder.problem_context(rec.problem_latex, rec.level, rec.plan, rec.problem_kind)]
         step_line = f"{idx + 1} of {len(steps)}: {step['title']} | goal: {step.get('goal', '')}"
         user_msg = context_builder.turn_user_message(history_before, context_builder.summary(rec.plan, st), notes,
                                                      step_line, st["current_question"], learner_shown)
@@ -462,6 +469,7 @@ class TutorEngine:
             "id": rec.id,
             "title": rec.title,
             "problem_latex": rec.problem_latex,
+            "problem_kind": rec.problem_kind,
             "level": rec.level,
             "status": rec.status,
             "phase": st["phase"],

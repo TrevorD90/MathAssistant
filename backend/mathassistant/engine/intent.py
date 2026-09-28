@@ -73,10 +73,17 @@ def has_math_content(text: str, problem_words: set[str] | None = None) -> bool:
 
 
 def problem_vocabulary(*texts: str) -> set[str]:
-    """Content words from the problem's step titles/goals (4+ letters)."""
+    """Content words from the problem text and step titles/goals (3+ letters,
+    so short nouns like "dog", "cat", "pie" in word problems count)."""
     vocab: set[str] = set()
     for t in texts:
-        vocab.update(w for w in _words(t or "") if len(w) >= 4)
+        for w in _words(t or ""):
+            if len(w) >= 3:
+                vocab.add(w)
+                if w.endswith("s") and len(w) > 3:
+                    vocab.add(w[:-1])            # "dogs" in the problem covers "dog"
+                else:
+                    vocab.add(w + "s")
     return vocab
 
 

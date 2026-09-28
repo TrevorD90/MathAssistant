@@ -8,18 +8,43 @@ import { Latex, MathText } from "./MathText";
 
 function ProblemEntry() {
   const { startProblem, busy } = useApp();
+  const [kind, setKind] = useState<"math" | "words">("math");
   const [latex, setLatex] = useState("");
+  const [text, setText] = useState("");
+  const ready = kind === "math" ? latex.trim() : text.trim();
   const submit = () => {
-    if (latex.trim() && !busy) void startProblem(latex);
+    if (!ready || busy) return;
+    if (kind === "math") void startProblem(latex);
+    else void startProblem("", text);
   };
   return (
     <section className="entry">
       <h1>What problem are you working on?</h1>
-      <p className="muted">Type it below, or use the keyboard icon in the field for the math keyboard.</p>
-      <MathInput value={latex} onChange={setLatex} onSubmit={submit} ariaLabel="Problem" autoFocus
-                 placeholder="\text{e.g. } 5\times5" />
+      <div className="mode-switch entry-switch" role="tablist" aria-label="Problem type">
+        <button role="tab" aria-selected={kind === "math"} className={kind === "math" ? "on" : ""}
+                onClick={() => setKind("math")}>Math</button>
+        <button role="tab" aria-selected={kind === "words"} className={kind === "words" ? "on" : ""}
+                onClick={() => setKind("words")}>Word problem</button>
+      </div>
+      {kind === "math" ? (
+        <>
+          <p className="muted">Type it below, or use the keyboard icon in the field for the math keyboard.</p>
+          <MathInput value={latex} onChange={setLatex} onSubmit={submit} ariaLabel="Problem" autoFocus
+                     placeholder="\text{e.g. } 5\times5" />
+        </>
+      ) : (
+        <>
+          <p className="muted">Type or paste the word problem. You can put math between $ signs, like $3x+5$.</p>
+          <textarea className="word-problem" value={text} maxLength={2000} rows={5} autoFocus
+                    aria-label="Word problem"
+                    placeholder="e.g. Sam has 3 bags with 12 apples in each bag. How many apples does Sam have?"
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) submit(); }} />
+          <p className="muted small">Press Ctrl+Enter or Start.</p>
+        </>
+      )}
       <div className="row">
-        <button className="primary" onClick={submit} disabled={busy || !latex.trim()}>
+        <button className="primary" onClick={submit} disabled={busy || !ready}>
           {busy ? "Planning the steps…" : "Start"}
         </button>
       </div>
@@ -101,7 +126,11 @@ export function TutorScreen() {
         <header className="problem-header">
           <div>
             <div className="muted small">{problem.title}</div>
-            <div className="problem-latex"><Latex latex={problem.problem_latex} display /></div>
+            <div className="problem-latex">
+              {problem.problem_kind === "words"
+                ? <p className="word-problem-text"><MathText text={problem.problem_latex} /></p>
+                : <Latex latex={problem.problem_latex} display />}
+            </div>
           </div>
           <button onClick={newProblem}>New problem</button>
         </header>

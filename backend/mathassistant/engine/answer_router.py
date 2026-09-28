@@ -56,7 +56,20 @@ class Candidates:
         return self.items[0] if self.items else ""
 
 
+_UNIT_RE = re.compile(r"\\(?:text|textrm|mathrm|operatorname)\{[^}]*\}")
+
+
+def strip_units(latex: str) -> str:
+    """Drop unit words and currency marks: `36\\text{ apples}` -> `36`, `\\$4.50` -> `4.50`."""
+    s = _UNIT_RE.sub(" ", latex)
+    s = s.replace("\\$", " ").replace("$", " ")
+    return s.strip()
+
+
 def candidates(text: str, latex: str) -> Candidates:
+    if latex:
+        bare = strip_units(latex)
+        latex = bare if bare and bare != latex and try_parse(latex) is None else latex
     primary = latex or (text if looks_like_math(text) else "")
     if primary:
         items = [primary]

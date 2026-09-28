@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added — 2026-09-28
+- Word problems: a "Word problem" option on the entry screen (plain text, `$…$` math allowed). The intake call also returns `math_formulation_latex` (e.g. `3	imes 12`); SymPy computes the answer from it and overrides the model's answer and last step result (N8). Still one AI call at intake. Problems SymPy can't formulate (proofs, explanations) fall back to the model's stated answer, as §7.1 allows.
+- Answers with units or currency are accepted: "36 apples", `36	ext{ apples}`, `\$4.50`.
+- Off-topic pre-check treats words from the problem text as on-topic ("dogs" in a dog word problem).
+- Schema migration v2: `problems.problem_kind` ('math' | 'words'); existing problems become 'math'.
+
 ### Changed — 2026-09-28
 - N4 amended: a correct answer is accepted and the tutor moves on immediately (a correct final answer solves the problem). A why/how check question is asked only if the learner got that step wrong first. Conceptual (AI-judged) steps follow the same rule; AI-judged wrong answers now count as attempts.
 

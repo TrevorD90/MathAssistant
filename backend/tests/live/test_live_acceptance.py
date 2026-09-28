@@ -101,3 +101,15 @@ def test_live_normal_turn_is_one_call(live):
     v = live.post(f"/api/problems/{v['id']}/turn", json={"latex": "2x=10"}).json()
     assert v["turn_ai_calls"] in (1, 2)  # 2 only if the guard had to regenerate
     _print(v)
+
+
+def test_live_word_problem_answer_computed_by_sympy(live):
+    text = "Sam has 3 bags with 12 apples in each bag. How many apples does Sam have?"
+    v = live.post("/api/problems", json={"text": text}).json()
+    assert v["problem_kind"] == "words"
+    v = live.post(f"/api/problems/{v['id']}/turn", json={"text": "I'm not sure how to start"}).json()
+    _print(v)
+    assert "36" not in " ".join(_tutor(v))
+    v = live.post(f"/api/problems/{v['id']}/turn", json={"text": "36 apples"}).json()
+    _print(v)
+    assert v["status"] == "completed"

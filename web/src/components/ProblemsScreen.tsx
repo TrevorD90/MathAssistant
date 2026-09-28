@@ -3,7 +3,7 @@
 
 import { useApp } from "../store/app";
 import type { ProblemSummary } from "../api/types";
-import { Latex } from "./MathText";
+import { Latex, MathText } from "./MathText";
 
 function List({ items, empty }: { items: ProblemSummary[]; empty: string }) {
   const { openProblem, deleteProblem } = useApp();
@@ -14,7 +14,11 @@ function List({ items, empty }: { items: ProblemSummary[]; empty: string }) {
         <li key={p.id}>
           <button className="problem-open" onClick={() => void openProblem(p.id)}>
             <span className="problem-title">{p.title}</span>
-            <span className="problem-mini"><Latex latex={p.problem_latex} /></span>
+            <span className="problem-mini">
+              {p.problem_kind === "words"
+                ? <MathText text={p.problem_latex.length > 90 ? p.problem_latex.slice(0, 87) + "…" : p.problem_latex} />
+                : <Latex latex={p.problem_latex} />}
+            </span>
             <span className="muted small">{new Date(p.updated_at).toLocaleString()}</span>
           </button>
           <button className="danger ghost" aria-label={`Delete ${p.title}`}

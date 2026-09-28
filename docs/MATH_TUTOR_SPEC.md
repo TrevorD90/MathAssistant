@@ -94,7 +94,7 @@ People use this because they want help learning math, not answers. The design ke
 
 Four input paths, all ending in the **same confirmation step**:
 
-1. **Type it:** MathLive field + math keyboard.
+1. **Type it:** MathLive field + math keyboard, or a **word problem** in plain text (added 2026-09-28; the intake call also translates it to math so SymPy computes the answer).
 2. **Take a picture:** webcam via the browser (`getUserMedia`), or upload a photo file (e.g. taken on a phone and moved to the computer).
 3. **Screenshot:** paste from clipboard or upload an image file.
 4. **PDF:** rendered with pdf.js; learner picks the page.

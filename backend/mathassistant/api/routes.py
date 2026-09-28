@@ -91,7 +91,8 @@ def remove_key(request: Request, provider: str = "anthropic"):
 # ------------------------------------------------------------------ problems
 
 class StartBody(BaseModel):
-    latex: str = Field(max_length=2000)
+    latex: str = Field(default="", max_length=2000)
+    text: str = Field(default="", max_length=2000)   # word problem (plain text)
 
 
 class TurnBody(BaseModel):
@@ -106,7 +107,7 @@ def list_problems(request: Request):
 
 @router.post("/problems")
 def start_problem(body: StartBody, request: Request):
-    return _svc(request).engine.start_problem(body.latex)
+    return _svc(request).engine.start_problem(body.latex, body.text)
 
 
 @router.get("/problems/{problem_id}")
