@@ -86,6 +86,8 @@ Prompt order for caching: fixed system prompt → per-problem context (both `cac
 | GET/DELETE | `/api/problems/{id}` | resume (0 AI calls) / delete |
 | POST | `/api/problems/{id}/turn` | `{text}` or `{latex}` |
 | POST | `/api/extract` | Phase 2: `{image_base64, media_type}` → problem to confirm (1 vision call; image not stored) |
+| POST | `/api/queue` | save not-yet-started problems to Up next (no AI) |
+| DELETE | `/api/queue/{id}` | remove from Up next |
 | POST | `/api/quit` | stop the server |
 
 ## Frontend (`web/src/`)
@@ -95,7 +97,7 @@ Prompt order for caching: fixed system prompt → per-problem context (both `cac
 - `components/MathInput.tsx`: `<math-field>` with the five custom keyboard tabs (`keyboard/layouts.ts`). Fonts are copied into the build; no sounds, no CDN.
 - `components/MathText.tsx`: KaTeX rendering of `$…$` segments (`trust: false`), plain text as React text.
 - `components/DisplayBox.tsx`, `TutorScreen.tsx`, `ProblemsScreen.tsx`, `Settings.tsx`.
-- Phase 2: `capture/image.ts` (crop, downscale, encode, clipboard), `capture/pdf.ts` (pdf.js, lazy-loaded), `components/capture/` (`CaptureFlow`, `CameraView`, `Cropper`). The server listens on port 51789 by default so camera permission persists.
+- Phase 2: `capture/image.ts` (crop, downscale, encode, clipboard), `capture/pdf.ts` (pdf.js, lazy-loaded), `components/capture/` (`CaptureFlow`, `CameraView`, `Cropper`, `ProblemPicker`). The server listens on port 51789 by default so camera permission persists.
 
 ## Data locations
 

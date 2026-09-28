@@ -36,7 +36,8 @@ def test_image_extracts_to_confirmable_problem_with_one_call(client, fake):
     r = extract(client)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["readable"] and body["kind"] == "math" and body["latex"] == r"5\times5"
+    assert body["readable"] and len(body["problems"]) == 1
+    assert body["problems"][0]["kind"] == "math" and body["problems"][0]["latex"] == r"5\times5"
     assert fake.call_count == 1 and fake.calls[0].purpose == "vision"
     # The image is sent to the provider as an image block.
     content = fake.calls[0].messages[0]["content"]
@@ -47,33 +48,34 @@ def test_image_extracts_to_confirmable_problem_with_one_call(client, fake):
 
 def test_confirm_starts_problem_and_counts_the_vision_call(client, fake):
     ex = extract(client).json()
-    r = client.post("/api/problems", json={"latex": ex["latex"], "extraction_id": ex["extraction_id"]})
+    latex = ex["problems"][0]["latex"]
+    r = client.post("/api/problems", json={"latex": latex, "extraction_ids": [ex["extraction_id"]]})
     assert r.status_code == 200
     view = r.json()
     assert view["usage"]["ai_calls"] == 2            # vision + intake
     # The extraction usage is counted once only.
-    r2 = client.post("/api/problems", json={"latex": ex["latex"], "extraction_id": ex["extraction_id"]})
+    r2 = client.post("/api/problems", json={"latex": latex, "extraction_ids": [ex["extraction_id"]]})
     assert r2.json()["usage"]["ai_calls"] == 1
 
 
 def test_learner_can_edit_before_confirming(client, storage):
     ex = extract(client).json()
-    view = client.post("/api/problems", json={"latex": r"6\times5", "extraction_id": ex["extraction_id"]}).json()
+    view = client.post("/api/problems", json={"latex": r"6\times5", "extraction_ids": [ex["extraction_id"]]}).json()
     assert view["problem_latex"] == r"6\times5"
     assert storage.get_problem(view["id"]).solution["kind"] == "number"
 
 
 def test_word_problem_from_image(client, script):
-    script.vision = {"readable": True, "kind": "words", "latex": "",
-                     "text": "Sam has 3 bags with 12 apples in each bag. How many apples does Sam have?",
-                     "instruction": "", "note": ""}
+    script.vision = {"readable": True, "note": "", "problems": [
+        {"label": "", "kind": "words", "latex": "", "instruction": "",
+         "text": "Sam has 3 bags with 12 apples in each bag. How many apples does Sam have?"}]}
     body = extract(client).json()
-    assert body["kind"] == "words" and body["text"].startswith("Sam has")
+    p = body["problems"][0]
+    assert p["kind"] == "words" and p["text"].startswith("Sam has")
 
 
 def test_unreadable_image_gives_clear_note(client, script):
-    script.vision = {"readable": False, "kind": "math", "latex": "", "text": "", "instruction": "",
-                     "note": "too blurry"}
+    script.vision = {"readable": False, "problems": [], "note": "too blurry"}
     body = extract(client).json()
     assert body["readable"] is False and body["note"] == "too blurry"
 
@@ -85,7 +87,8 @@ def test_malformed_vision_reply_is_unreadable(client, script):
 
 
 def test_readable_but_empty_is_unreadable(client, script):
-    script.vision = {"readable": True, "kind": "math", "latex": "", "text": "", "instruction": "", "note": ""}
+    script.vision = {"readable": True, "note": "", "problems": [
+        {"label": "", "kind": "math", "latex": "", "text": "", "instruction": ""}]}
     assert extract(client).json()["readable"] is False
 
 
@@ -179,7 +182,7 @@ def test_images_are_never_stored_or_logged(client, storage, tmp_path):
 
     setup_logging()
     ex = extract(client).json()
-    client.post("/api/problems", json={"latex": ex["latex"], "extraction_id": ex["extraction_id"]})
+    client.post("/api/problems", json={"latex": ex["problems"][0]["latex"], "extraction_ids": [ex["extraction_id"]]})
     import logging
 
     for h in logging.getLogger().handlers:

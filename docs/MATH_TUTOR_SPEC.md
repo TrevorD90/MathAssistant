@@ -99,7 +99,7 @@ Four input paths, all ending in the **same confirmation step**:
 3. **Screenshot:** paste from clipboard or upload an image file.
 4. **PDF:** rendered with pdf.js; learner picks the page.
 
-For 2–4, the learner **crops to the one problem** before extraction. This keeps the image small (lower cost) and avoids reading the wrong problem.
+For 2–4, the learner **crops to the one problem** before extraction, or reads the whole page: the AI then lists every problem on it and the learner picks one to start with; the rest can be saved to an **Up next** list (no AI cost until started). A multi-page PDF can be read page by page (one vision call per page, up to 10). (Amended 2026-09-28.)
 
 **Confirmation step (required for 2–4):** the AI (vision) extracts the problem as LaTeX → loaded into the MathLive field → learner confirms or edits before tutoring starts. Extraction runs **once per problem**.
 

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added — 2026-09-28: worksheets with several problems
+- The vision call now lists **every problem** in the image (up to 20, reading order, printed labels, never solved). One problem → straight to confirm; several → a **picker** to choose which to start with.
+- The rest can be saved to **Up next** (checkbox, on by default): stored as text only, **no AI cost** until started. My problems shows Up next; starting one pre-fills the entry screen to confirm, and it leaves the list once started.
+- **Read all pages** for multi-page PDFs (up to 10 pages, one vision call per page), merged with page labels ("p2 #3"). All page reads count toward the usage of the problem started from them.
+- Cropping is optional: read the whole page to choose from all problems.
+- Migration v3: `queued_problems` table. Delete all problems also clears Up next.
+
 ### Phase 2 — Image/PDF input — 2026-09-28
 - **Camera** (webcam via `getUserMedia`), **photo/screenshot upload**, **clipboard paste** (Ctrl+V on the entry screen), and **PDF** (pdf.js, pick a page). All four go through the same **crop** step, then **one vision call** (`POST /api/extract`) that transcribes the problem (math → LaTeX, word problem → text, never solved). The result loads into the normal entry fields to **confirm or edit**; tutoring starts only on Start.
 - Images are cropped and downscaled in the browser (≤1568 px side, ≤1.15 MP; PNG, JPEG for large photos), validated server-side (type, signature, 5 MB), sent to the provider once, and **never stored or logged** (tested).

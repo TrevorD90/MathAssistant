@@ -48,8 +48,12 @@ class DemoProvider(LLMProvider):
                 ],
             }, usage=usage)
         if req.purpose == "vision":
-            return StructuredResult(data={"readable": True, "kind": "math", "latex": r"5\times 5",
-                                          "text": "", "instruction": "", "note": "demo"}, usage=usage)
+            return StructuredResult(data={"readable": True, "note": "demo", "problems": [
+                {"label": "1", "kind": "math", "latex": r"5\times 5", "text": "", "instruction": ""},
+                {"label": "2", "kind": "words", "latex": "",
+                 "text": "Sam has 3 bags with 12 apples in each bag. How many apples does Sam have?",
+                 "instruction": ""},
+            ]}, usage=usage)
         self._turn += 1
         note = req.messages[0]["content"]
         passed = "PHASE: CHECK" in note

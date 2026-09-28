@@ -96,17 +96,34 @@ export interface ProblemSummary {
 }
 
 // Phase 2: what the vision call read from an image (for the learner to confirm).
-export interface Extraction {
-  extraction_id: string;
-  readable: boolean;
+export interface ExtractedProblem {
+  label: string;
   kind: "math" | "words";
   latex: string;
   text: string;
   instruction: string;
+}
+
+export interface Extraction {
+  extraction_id: string;
+  readable: boolean;
   note: string;
+  problems: ExtractedProblem[];
+}
+
+// "Up next": read from a worksheet, not started yet.
+export interface QueuedProblem {
+  id: string;
+  problem_text: string;
+  problem_kind: "math" | "words";
+  label: string;
+  instruction: string;
+  source: string;
+  created_at: string;
 }
 
 export interface ProblemList {
+  up_next: QueuedProblem[];
   in_progress: ProblemSummary[];
   completed: ProblemSummary[];
 }

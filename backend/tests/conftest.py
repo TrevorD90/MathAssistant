@@ -89,8 +89,8 @@ class Script:
         self.turns: deque = deque()
         self.default = default_turn()
         # Phase 2: what the "vision model" reads from any image.
-        self.vision: dict | None = {"readable": True, "kind": "math", "latex": r"5\times5", "text": "",
-                                    "instruction": "", "note": ""}
+        self.vision: dict | None = {"readable": True, "note": "", "problems": [
+            {"label": "", "kind": "math", "latex": r"5\times5", "text": "", "instruction": ""}]}
 
     def push(self, *responses: dict | None):
         self.turns.extend(responses)

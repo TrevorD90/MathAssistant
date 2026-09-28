@@ -101,8 +101,43 @@ class Storage:
             row = conn.execute("SELECT * FROM problems WHERE id = ?", (problem_id,)).fetchone()
         return self._row_to_record(row) if row else None
 
+    # ------------------------------------------------------------ up next (queued)
+
+    def add_queued(self, items: list[dict], source: str = "") -> list[str]:
+        """Save not-yet-started problems (from a worksheet). Returns their ids."""
+        ids: list[str] = []
+        now = _now()
+        with self._conn() as conn:
+            for pos, it in enumerate(items):
+                qid = uuid.uuid4().hex
+                conn.execute(
+                    "INSERT INTO queued_problems (id, problem_text, problem_kind, label, instruction, source, "
+                    "position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (qid, it["problem_text"], it["problem_kind"], it.get("label", ""),
+                     it.get("instruction", ""), source, pos, now),
+                )
+                ids.append(qid)
+        return ids
+
+    def list_queued(self) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT id, problem_text, problem_kind, label, instruction, source, created_at "
+                "FROM queued_problems ORDER BY created_at, position"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_queued(self, qid: str) -> dict | None:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM queued_problems WHERE id = ?", (qid,)).fetchone()
+        return dict(row) if row else None
+
+    def delete_queued(self, qid: str) -> bool:
+        with self._conn() as conn:
+            return conn.execute("DELETE FROM queued_problems WHERE id = ?", (qid,)).rowcount > 0
+
     def list_problems(self) -> dict[str, list[dict]]:
-        """Summaries for the My problems screen: in progress and completed, newest first."""
+        """Summaries for the My problems screen: up next, in progress, completed (newest first)."""
         with self._conn() as conn:
             rows = conn.execute(
                 "SELECT id, title, problem_latex, problem_kind, level, status, created_at, updated_at "
@@ -111,6 +146,7 @@ class Storage:
         out: dict[str, list[dict]] = {"in_progress": [], "completed": []}
         for r in rows:
             out[r["status"]].append(dict(r))
+        out["up_next"] = self.list_queued()
         return out
 
     def delete_problem(self, problem_id: str) -> bool:
@@ -121,8 +157,9 @@ class Storage:
     def delete_all_problems(self) -> int:
         with self._conn() as conn:
             cur = conn.execute("DELETE FROM problems")
+            queued = conn.execute("DELETE FROM queued_problems").rowcount
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            return cur.rowcount
+            return cur.rowcount + queued
 
     @staticmethod
     def _row_to_record(row: sqlite3.Row) -> ProblemRecord:

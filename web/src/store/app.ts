@@ -3,7 +3,18 @@
 
 import { create } from "zustand";
 import { api, ApiError } from "../api/client";
-import type { ProblemList, ProblemView, ProvidersResponse, Status } from "../api/types";
+import type { ProblemList, ProblemView, ProvidersResponse, QueuedProblem, Status } from "../api/types";
+
+// A problem waiting on the entry screen to be confirmed (from an image or "Up next").
+export interface Draft {
+  kind: "math" | "words";
+  latex: string;
+  text: string;
+  instruction: string;
+  note: string;
+  extractionIds: string[];
+  queuedId: string | null;
+}
 
 export type Screen = "tutor" | "problems" | "settings";
 
@@ -13,6 +24,7 @@ interface AppState {
   providers: ProvidersResponse | null;
   problem: ProblemView | null;
   problems: ProblemList | null;
+  draft: Draft | null;
   busy: boolean;
   error: string | null;
   stopped: boolean;
@@ -20,7 +32,10 @@ interface AppState {
   init: () => Promise<void>;
   go: (screen: Screen) => void;
   refreshStatus: () => Promise<void>;
-  startProblem: (latex: string, text?: string, extractionId?: string | null) => Promise<void>;
+  startProblem: (latex: string, text?: string, draft?: Draft | null) => Promise<void>;
+  setDraft: (draft: Draft | null) => void;
+  startFromQueue: (q: QueuedProblem) => void;
+  deleteQueued: (id: string) => Promise<void>;
   sendTurn: (text: string, latex: string) => Promise<void>;
   newProblem: () => void;
   openProblem: (id: string) => Promise<void>;
@@ -62,6 +77,7 @@ export const useApp = create<AppState>((set, get) => {
     providers: null,
     problem: null,
     problems: null,
+    draft: null,
     busy: false,
     error: null,
     stopped: false,
@@ -86,9 +102,33 @@ export const useApp = create<AppState>((set, get) => {
       }
     },
 
-    startProblem: async (latex, text = "", extractionId = null) => {
-      const view = await run(() => api.startProblem(latex, text, extractionId));
-      if (view) set({ problem: view, screen: "tutor" });
+    startProblem: async (latex, text = "", draft = null) => {
+      const view = await run(() => api.startProblem(latex, text, draft?.extractionIds ?? [], draft?.queuedId ?? null));
+      if (view) set({ problem: view, screen: "tutor", draft: null });
+    },
+
+    setDraft: (draft) => set({ draft }),
+
+    // "Up next" -> the entry screen, pre-filled, to confirm and Start.
+    startFromQueue: (q) =>
+      set({
+        problem: null,
+        screen: "tutor",
+        error: null,
+        draft: {
+          kind: q.problem_kind,
+          latex: q.problem_kind === "math" ? q.problem_text : "",
+          text: q.problem_kind === "words" ? q.problem_text : "",
+          instruction: q.instruction,
+          note: "",
+          extractionIds: [],
+          queuedId: q.id,
+        },
+      }),
+
+    deleteQueued: async (id) => {
+      await run(() => api.deleteQueued(id));
+      await get().loadProblems();
     },
 
     sendTurn: async (text, latex) => {
@@ -102,7 +142,7 @@ export const useApp = create<AppState>((set, get) => {
     },
 
     // New problem: the display box and conversation start empty (spec §9.2).
-    newProblem: () => set({ problem: null, screen: "tutor", error: null }),
+    newProblem: () => set({ problem: null, screen: "tutor", error: null, draft: null }),
 
     openProblem: async (id) => {
       const view = await run(() => api.getProblem(id)); // resume: zero AI calls
@@ -122,7 +162,7 @@ export const useApp = create<AppState>((set, get) => {
 
     deleteAll: async () => {
       const r = await run(() => api.deleteAll());
-      set({ problem: null, problems: { in_progress: [], completed: [] } });
+      set({ problem: null, draft: null, problems: { up_next: [], in_progress: [], completed: [] } });
       return r?.deleted ?? 0;
     },
 

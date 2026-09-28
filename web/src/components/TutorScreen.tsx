@@ -2,29 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../store/app";
-import type { Extraction } from "../api/types";
 import { imageFromClipboard } from "../capture/image";
-import { CaptureFlow, type CaptureStart } from "./capture/CaptureFlow";
+import { CaptureFlow, type CaptureResult, type CaptureStart } from "./capture/CaptureFlow";
 import { DisplayBox } from "./DisplayBox";
 import { MathInput } from "./MathInput";
 import { Latex, MathText } from "./MathText";
 
 function ProblemEntry() {
-  const { startProblem, busy, status } = useApp();
-  const [kind, setKind] = useState<"math" | "words">("math");
-  const [latex, setLatex] = useState("");
-  const [text, setText] = useState("");
+  const { startProblem, busy, status, draft, setDraft } = useApp();
+  // A draft (from an image or "Up next") pre-fills the fields for confirmation.
+  const [kind, setKind] = useState<"math" | "words">(draft?.kind ?? "math");
+  const [latex, setLatex] = useState(draft?.latex ?? "");
+  const [text, setText] = useState(draft?.text ?? "");
   const [capture, setCapture] = useState<CaptureStart | null>(null);
-  const [extracted, setExtracted] = useState<Extraction | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const canSee = status?.capabilities.vision ?? false;
   const ready = kind === "math" ? latex.trim() : text.trim();
 
   const submit = () => {
     if (!ready || busy) return;
-    const exId = extracted?.extraction_id ?? null;
-    if (kind === "math") void startProblem(latex, "", exId);
-    else void startProblem("", text, exId);
+    if (kind === "math") void startProblem(latex, "", draft);
+    else void startProblem("", text, draft);
   };
 
   // Screenshot paste (Ctrl+V / Cmd+V) anywhere on the entry screen. Text
@@ -43,19 +41,20 @@ function ProblemEntry() {
   }, [canSee, capture]);
 
   // The AI's reading goes into the normal fields so the learner can confirm or edit it.
-  const onExtracted = (ex: Extraction) => {
-    setExtracted(ex);
+  const onPicked = ({ problem, extractionIds }: CaptureResult) => {
+    setDraft({ kind: problem.kind, latex: problem.latex, text: problem.text, instruction: problem.instruction,
+               note: "", extractionIds, queuedId: null });
     setCapture(null);
-    setKind(ex.kind);
-    if (ex.kind === "math") setLatex(ex.latex);
-    else setText(ex.text);
+    setKind(problem.kind);
+    if (problem.kind === "math") setLatex(problem.latex);
+    else setText(problem.text);
   };
 
   if (capture) {
     return (
       <section className="entry">
         <h1>Add a problem from an image</h1>
-        <CaptureFlow start={capture} onExtracted={onExtracted} onCancel={() => setCapture(null)} />
+        <CaptureFlow start={capture} onPicked={onPicked} onCancel={() => setCapture(null)} />
       </section>
     );
   }
@@ -74,14 +73,14 @@ function ProblemEntry() {
                  if (f) setCapture({ type: "file", file: f });
                }} />
       </div>
-      {extracted && (
+      {draft && (
         <div className="notice confirm" role="status">
           <span>
-            <strong>Check the problem below.</strong> Fix anything that was misread, then press Start.
-            {extracted.instruction && <> The image says: “{extracted.instruction}”.</>}
-            {extracted.note && extracted.note !== "demo" && <> ({extracted.note})</>}
+            <strong>Check the problem below.</strong>{" "}
+            {draft.queuedId ? "It's from your Up next list." : "Fix anything that was misread."} Then press Start.
+            {draft.instruction && <> The directions say: “{draft.instruction}”.</>}
           </span>
-          <button className="ghost" onClick={() => setExtracted(null)} aria-label="Dismiss">✕</button>
+          <button className="ghost" onClick={() => setDraft(null)} aria-label="Dismiss">✕</button>
         </div>
       )}
       <div className="mode-switch entry-switch" role="tablist" aria-label="Problem type">

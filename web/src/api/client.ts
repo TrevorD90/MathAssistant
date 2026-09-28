@@ -2,7 +2,7 @@
 // The launcher opens the app at /#token=<token>; we move it into sessionStorage
 // and strip it from the URL so it isn't left in the address bar or history.
 
-import type { Extraction, ProblemList, ProblemView, ProvidersResponse, Status } from "./types";
+import type { ExtractedProblem, Extraction, ProblemList, ProblemView, ProvidersResponse, Status } from "./types";
 
 const TOKEN_KEY = "mathassistant.token";
 let token: string | null = null;
@@ -69,8 +69,12 @@ export const api = {
     request<Status>("DELETE", `/api/key?provider=${encodeURIComponent(provider)}`),
   listProblems: () => request<ProblemList>("GET", "/api/problems"),
   // Either LaTeX (math field) or plain text (word problem).
-  startProblem: (latex: string, text = "", extractionId: string | null = null) =>
-    request<ProblemView>("POST", "/api/problems", { latex, text, extraction_id: extractionId }),
+  startProblem: (latex: string, text = "", extractionIds: string[] = [], queuedId: string | null = null) =>
+    request<ProblemView>("POST", "/api/problems", { latex, text, extraction_ids: extractionIds, queued_id: queuedId }),
+  // Save not-yet-started problems (rest of a worksheet) to "Up next". No AI calls.
+  queue: (items: ExtractedProblem[], source: string) =>
+    request<{ ok: boolean; added: number }>("POST", "/api/queue", { items, source }),
+  deleteQueued: (id: string) => request<{ ok: boolean }>("DELETE", `/api/queue/${encodeURIComponent(id)}`),
   // Phase 2: one cropped image -> problem text to confirm (one vision call; not stored).
   extract: (imageBase64: string, mediaType: string) =>
     request<Extraction>("POST", "/api/extract", { image_base64: imageBase64, media_type: mediaType }),

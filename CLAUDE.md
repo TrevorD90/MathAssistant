@@ -71,6 +71,7 @@ DEV_MODE=true MATHASSISTANT_DEMO=1 .venv/Scripts/python -m mathassistant
 - 2026-09-28 — Dev-only offline DemoProvider (`DEV_MODE=true MATHASSISTANT_DEMO=1`), never active in bundled builds.
 - 2026-09-28 — Off-topic pre-check is conservative: needs no math content AND a positive off-topic cue; uncertain messages go to the AI.
 - 2026-09-28 — N4 amended by the user: correct answers are accepted immediately; a check question is asked only after a wrong attempt on that step. Correct final answer = solved.
+- 2026-09-28 — Worksheets: vision lists all problems (≤20/image); learner picks one; the rest go to "Up next" (queued_problems table, migration v3, no AI cost until started). PDF "Read all pages" ≤10 pages.
 - 2026-09-28 — Phase 2 approved and built. Fixed default port 51789 (user choice) so camera permission persists; fallback to a free port.
 - 2026-09-28 — Vision extraction is transcription only (never solves); result must be confirmed by the learner before the intake call. Images never stored/logged.
 - 2026-09-28 — Crop UI built in-house (no library). pdf.js 6.3 bundled; CSP gains 'wasm-unsafe-eval' + worker-src for it.

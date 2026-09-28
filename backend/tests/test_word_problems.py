@@ -142,7 +142,7 @@ def test_migration_v1_to_v2_keeps_existing_problems(tmp_path):
     rec = st.get_problem("old1")
     assert rec is not None and rec.problem_kind == "math" and rec.title == "Old"
     with sqlite3.connect(path) as c:
-        assert migrations.current_version(c) == 2
+        assert migrations.current_version(c) == len(migrations.MIGRATIONS)
 
 
 MONEY = "Sam has $5 and buys a toy for $2. How much money does Sam have left?"

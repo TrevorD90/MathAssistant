@@ -1,9 +1,9 @@
 """Image -> problem text (spec §4, Phase 2).
 
-One vision call per image. The model transcribes the single problem in the
-(already cropped and downscaled) image: math as LaTeX, a word problem as
-plain text. It never solves. The result goes back to the learner to confirm
-or edit; tutoring (the intake call) starts only after they press Start.
+One vision call per image. The model transcribes every separate problem it
+can see (up to MAX_PROBLEMS, in reading order): math as LaTeX, word problems as
+plain text. It never solves. The learner picks one to start with and confirms
+or edits it; the others can be saved to "Up next" (no AI cost until started).
 
 Images are held in memory for this one call only: never written to disk,
 the database, or the logs.
@@ -14,14 +14,15 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..providers.base import LLMProvider, StructuredRequest, Usage
 
 log = logging.getLogger(__name__)
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024        # after base64 decode; the client downscales well below this
-EXTRACT_MAX_TOKENS = 800
+MAX_PROBLEMS = 20                        # per image
+EXTRACT_MAX_TOKENS = 3000                # a full worksheet page can list many problems
 
 # Media types the Anthropic API accepts, with their file signatures.
 _SIGNATURES = {
@@ -32,26 +33,39 @@ _SIGNATURES = {
 }
 
 EXTRACT_SYSTEM = """\
-You read ONE math problem from an image for a tutoring program. You are a transcriber, not a solver.
+You read math problems from an image for a tutoring program. You are a transcriber, not a solver.
 
-- Copy the problem exactly as written. Do NOT solve it, simplify it, or add an answer, even if an answer or worked steps appear in the image (leave those out).
-- If it is mostly symbols/equations, set kind="math" and put it in latex (LaTeX without $ delimiters), e.g. "\\frac{d}{dx}\\sin(x^2)" or "2x+3=7". Put any short instruction words ("Solve", "Simplify") in instruction.
-- If it is a word problem (sentences), set kind="words" and put the full text in text. Write any math inside it as plain text (e.g. "3x + 5").
-- If several problems are visible, transcribe only the most complete one near the center and set note to "several problems".
-- If you can't read a problem, set readable=false and explain briefly in note (e.g. "too blurry", "no math problem").
+- List EVERY separate problem you can see, in reading order (at most 20). If there is only one, list one.
+- Copy each problem exactly as written. Do NOT solve anything, simplify, or add answers, even if answers or worked steps appear in the image (leave those out).
+- label: the problem's printed number or letter ("3", "4b"), or "" if none.
+- If a problem is mostly symbols/equations: kind="math", latex = LaTeX without $ delimiters (e.g. "\\frac{d}{dx}\\sin(x^2)" or "2x+3=7"). Put short instruction words ("Solve", "Simplify") in instruction.
+- If it is a word problem (sentences): kind="words", text = the full text, with any math written as plain text (e.g. "3x + 5").
+- Shared directions for a group ("Solve each equation") go in each problem's instruction.
+- Skip headers, names, dates, and page numbers.
+- If you can't read any problem, set readable=false, problems=[], and explain briefly in note (e.g. "too blurry", "no math problem").
 """
+
+_PROBLEM_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "label": {"type": "string"},
+        "kind": {"type": "string", "enum": ["math", "words"]},
+        "latex": {"type": "string"},
+        "text": {"type": "string"},
+        "instruction": {"type": "string"},
+    },
+    "required": ["label", "kind", "latex", "text", "instruction"],
+    "additionalProperties": False,
+}
 
 EXTRACT_SCHEMA: dict = {
     "type": "object",
     "properties": {
         "readable": {"type": "boolean"},
-        "kind": {"type": "string", "enum": ["math", "words"]},
-        "latex": {"type": "string"},
-        "text": {"type": "string"},
-        "instruction": {"type": "string"},
+        "problems": {"type": "array", "items": _PROBLEM_SCHEMA},
         "note": {"type": "string"},
     },
-    "required": ["readable", "kind", "latex", "text", "instruction", "note"],
+    "required": ["readable", "problems", "note"],
     "additionalProperties": False,
 }
 
@@ -61,14 +75,24 @@ class ImageError(ValueError):
 
 
 @dataclass
-class Extraction:
-    readable: bool
+class ExtractedProblem:
+    label: str
     kind: str            # "math" | "words"
     latex: str
     text: str
     instruction: str
+
+    def to_dict(self) -> dict:
+        return {"label": self.label, "kind": self.kind, "latex": self.latex, "text": self.text,
+                "instruction": self.instruction}
+
+
+@dataclass
+class Extraction:
+    readable: bool
     note: str
     usage: Usage
+    problems: list[ExtractedProblem] = field(default_factory=list)
 
 
 def decode_image(image_base64: str, media_type: str) -> bytes:
@@ -83,7 +107,7 @@ def decode_image(image_base64: str, media_type: str) -> bytes:
     if not raw:
         raise ImageError("That image is empty.")
     if len(raw) > MAX_IMAGE_BYTES:
-        raise ImageError("That image is too large. Crop it to just the problem.")
+        raise ImageError("That image is too large. Crop it to just the problems.")
     if not any(raw.startswith(sig) for sig in _SIGNATURES[media_type]):
         raise ImageError("That file isn't the image type it claims to be.")
     if media_type == "image/webp" and raw[8:12] != b"WEBP":
@@ -91,14 +115,35 @@ def decode_image(image_base64: str, media_type: str) -> bytes:
     return raw
 
 
-def extract_problem(provider: LLMProvider, image: bytes, media_type: str) -> Extraction:
+def _clean_problem(raw: object) -> ExtractedProblem | None:
+    if not isinstance(raw, dict):
+        return None
+    kind = raw.get("kind") if raw.get("kind") in ("math", "words") else "math"
+    p = ExtractedProblem(
+        label=str(raw.get("label", "") or "").strip()[:12],
+        kind=kind,
+        latex=str(raw.get("latex", "") or "").strip()[:2000],
+        text=str(raw.get("text", "") or "").strip()[:2000],
+        instruction=str(raw.get("instruction", "") or "").strip()[:200],
+    )
+    # A math problem the model wrote as text (or vice versa) is still usable.
+    if kind == "math" and not p.latex and p.text:
+        p.kind = "words"
+    if kind == "words" and not p.text and p.latex:
+        p.kind = "math"
+    if not (p.latex if p.kind == "math" else p.text):
+        return None
+    return p
+
+
+def extract_problems(provider: LLMProvider, image: bytes, media_type: str) -> Extraction:
     """One vision call. The image bytes are not retained after this returns."""
     b64 = base64.standard_b64encode(image).decode("ascii")
     req = StructuredRequest(
         system_blocks=[EXTRACT_SYSTEM],
         messages=[{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": b64}},
-            {"type": "text", "text": "Transcribe the math problem in this image."},
+            {"type": "text", "text": "Transcribe the math problems in this image."},
         ]}],
         schema=EXTRACT_SCHEMA,
         max_tokens=EXTRACT_MAX_TOKENS,
@@ -106,18 +151,15 @@ def extract_problem(provider: LLMProvider, image: bytes, media_type: str) -> Ext
     )
     result = provider.structured(req)
     d = result.data or {}
-    kind = d.get("kind") if d.get("kind") in ("math", "words") else "math"
+    raw_list = d.get("problems") if isinstance(d.get("problems"), list) else []
+    problems = [p for p in (_clean_problem(r) for r in raw_list[:MAX_PROBLEMS]) if p]
     ex = Extraction(
-        readable=bool(d.get("readable")) and not result.malformed,
-        kind=kind,
-        latex=str(d.get("latex", "") or "").strip()[:2000],
-        text=str(d.get("text", "") or "").strip()[:2000],
-        instruction=str(d.get("instruction", "") or "").strip()[:200],
+        readable=bool(d.get("readable")) and not result.malformed and bool(problems),
         note=str(d.get("note", "") or "").strip()[:200],
         usage=result.usage,
+        problems=problems,
     )
-    if ex.readable and not (ex.latex if kind == "math" else ex.text):
-        ex.readable = False
-        ex.note = ex.note or "no problem found"
-    log.info("vision extraction: readable=%s kind=%s", ex.readable, ex.kind)  # never the content
+    if not ex.readable and not ex.note:
+        ex.note = "no problem found"
+    log.info("vision extraction: readable=%s problems=%d", ex.readable, len(ex.problems))  # never the content
     return ex

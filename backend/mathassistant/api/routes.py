@@ -94,7 +94,22 @@ def remove_key(request: Request, provider: str = "anthropic"):
 class StartBody(BaseModel):
     latex: str = Field(default="", max_length=2000)
     text: str = Field(default="", max_length=2000)   # word problem (plain text)
-    extraction_id: str | None = Field(default=None, max_length=40)  # set when it came from an image
+    # Vision call(s) this problem came from (a multi-page PDF can be several).
+    extraction_ids: list[str] = Field(default_factory=list, max_length=20)
+    queued_id: str | None = Field(default=None, max_length=40)  # started from "Up next"
+
+
+class QueueItem(BaseModel):
+    kind: str = Field(pattern="^(math|words)$")
+    latex: str = Field(default="", max_length=2000)
+    text: str = Field(default="", max_length=2000)
+    label: str = Field(default="", max_length=20)
+    instruction: str = Field(default="", max_length=200)
+
+
+class QueueBody(BaseModel):
+    items: list[QueueItem] = Field(max_length=200)
+    source: str = Field(default="", max_length=120)
 
 
 class ExtractBody(BaseModel):
@@ -122,8 +137,28 @@ def extract(body: ExtractBody, request: Request):
 @router.post("/problems")
 def start_problem(body: StartBody, request: Request):
     svc = _svc(request)
-    extra = svc.take_extraction_usage(body.extraction_id)
-    return svc.engine.start_problem(body.latex, body.text, extra_usage=extra)
+    extra = svc.take_extraction_usage([e for e in body.extraction_ids if isinstance(e, str)][:20])
+    view = svc.engine.start_problem(body.latex, body.text, extra_usage=extra)
+    if body.queued_id:
+        svc.storage.delete_queued(body.queued_id)   # started: no longer "up next"
+    return view
+
+
+@router.post("/queue")
+def add_to_queue(body: QueueBody, request: Request):
+    """Save not-yet-started problems (e.g. the rest of a worksheet). No AI calls."""
+    items = [{"problem_text": (i.latex if i.kind == "math" else i.text).strip(), "problem_kind": i.kind,
+              "label": i.label, "instruction": i.instruction} for i in body.items]
+    items = [i for i in items if i["problem_text"]]
+    ids = _svc(request).storage.add_queued(items, source=body.source)
+    return {"ok": True, "added": len(ids)}
+
+
+@router.delete("/queue/{queued_id}")
+def delete_queued(queued_id: str, request: Request):
+    if not _svc(request).storage.delete_queued(queued_id):
+        raise TutorError("That problem wasn't found.", "not_found")
+    return {"ok": True}
 
 
 @router.get("/problems/{problem_id}")

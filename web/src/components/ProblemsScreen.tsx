@@ -2,7 +2,7 @@
 // resumes with no AI call.
 
 import { useApp } from "../store/app";
-import type { ProblemSummary } from "../api/types";
+import type { ProblemSummary, QueuedProblem } from "../api/types";
 import { Latex, MathText } from "./MathText";
 
 function List({ items, empty }: { items: ProblemSummary[]; empty: string }) {
@@ -31,11 +31,40 @@ function List({ items, empty }: { items: ProblemSummary[]; empty: string }) {
   );
 }
 
+function UpNext({ items }: { items: QueuedProblem[] }) {
+  const { startFromQueue, deleteQueued } = useApp();
+  if (items.length === 0) return <p className="muted">Nothing waiting. Add a worksheet from a photo or PDF to fill this list.</p>;
+  return (
+    <ul className="problem-list">
+      {items.map((q) => (
+        <li key={q.id}>
+          <button className="problem-open" onClick={() => startFromQueue(q)}>
+            <span className="problem-title">{q.label ? `#${q.label}` : "Problem"}{q.source ? ` · ${q.source}` : ""}</span>
+            <span className="problem-mini">
+              {q.instruction && <span className="muted small">{q.instruction} </span>}
+              {q.problem_kind === "words"
+                ? <MathText text={q.problem_text.length > 90 ? q.problem_text.slice(0, 87) + "…" : q.problem_text} />
+                : <Latex latex={q.problem_text} />}
+            </span>
+            <span className="muted small">Start →</span>
+          </button>
+          <button className="danger ghost" aria-label="Remove from Up next"
+                  onClick={() => { if (window.confirm("Remove this problem from Up next?")) void deleteQueued(q.id); }}>
+            Remove
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function ProblemsScreen() {
   const { problems } = useApp();
   return (
     <section className="problems">
       <h1>My problems</h1>
+      <h2>Up next</h2>
+      <UpNext items={problems?.up_next ?? []} />
       <h2>In progress</h2>
       <List items={problems?.in_progress ?? []} empty="Nothing in progress." />
       <h2>Completed</h2>

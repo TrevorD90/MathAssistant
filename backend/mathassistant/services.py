@@ -141,7 +141,7 @@ class Services:
             raise TutorError(str(exc), "bad_image") from None
         provider = self.make_provider()
         try:
-            ex = extract_mod.extract_problem(provider, image, media_type)
+            ex = extract_mod.extract_problems(provider, image, media_type)
         except ProviderError as err:
             raise TutorError(err.user_message, err.kind) from None
         finally:
@@ -155,20 +155,19 @@ class Services:
         return {
             "extraction_id": extraction_id,
             "readable": ex.readable,
-            "kind": ex.kind,
-            "latex": ex.latex,
-            "text": ex.text,
-            "instruction": ex.instruction,
             "note": ex.note,
+            "problems": [p.to_dict() for p in ex.problems],
         }
 
-    def take_extraction_usage(self, extraction_id: str | None) -> Usage | None:
-        """Usage of the vision call that produced this problem (counted once)."""
-        if not extraction_id:
-            return None
+    def take_extraction_usage(self, extraction_ids: list[str]) -> list[Usage]:
+        """Usage of the vision call(s) that produced this problem (each counted once)."""
+        out: list[Usage] = []
         with self._pending_lock:
-            item = self._pending_usage.pop(extraction_id, None)
-        return item[0] if item else None
+            for eid in extraction_ids:
+                item = self._pending_usage.pop(eid, None)
+                if item:
+                    out.append(item[0])
+        return out
 
     def remove_key(self, provider: str) -> None:
         if self._provider_factory_override is None:

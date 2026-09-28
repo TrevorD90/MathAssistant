@@ -42,6 +42,20 @@ MIGRATIONS: list[str] = [
     ALTER TABLE problems ADD COLUMN problem_kind TEXT NOT NULL DEFAULT 'math'
         CHECK (problem_kind IN ('math', 'words'));
     """,
+    # v3 — "Up next": problems read from a worksheet but not started yet (no plan, no AI cost).
+    """
+    CREATE TABLE queued_problems (
+        id           TEXT PRIMARY KEY,
+        problem_text TEXT NOT NULL,          -- LaTeX (math) or plain text (words)
+        problem_kind TEXT NOT NULL CHECK (problem_kind IN ('math', 'words')),
+        label        TEXT NOT NULL DEFAULT '',
+        instruction  TEXT NOT NULL DEFAULT '',
+        source       TEXT NOT NULL DEFAULT '',
+        position     INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT NOT NULL
+    );
+    CREATE INDEX idx_queued_created ON queued_problems (created_at, position);
+    """,
 ]
 
 

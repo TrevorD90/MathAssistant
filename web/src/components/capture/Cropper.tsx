@@ -47,7 +47,8 @@ export function Cropper({ source, busy, onConfirm, onCancel }: Props) {
 
   return (
     <div className="cropper">
-      <p><strong>Drag a box around just the one problem.</strong> <span className="muted">Or use the whole image.</span></p>
+      <p><strong>Drag a box around the problem you want,</strong>{" "}
+        <span className="muted">or read the whole image to choose from every problem on it.</span></p>
       <canvas
         ref={canvasRef}
         className="crop-canvas"
