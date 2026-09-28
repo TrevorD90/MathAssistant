@@ -149,6 +149,25 @@ def _strip_var_eq(value: object, var: str | None) -> object:
     return value
 
 
+def normalize_value(value: object) -> object:
+    """The value an equation-shaped result stands for.
+
+    Plans (and learners) often write results as equations: `u = x^2`,
+    `12^2 = 144`, `8 + 144 - 3x = 152 - 3x`. The value to compare is the
+    right-hand side when the left side is a lone symbol or the equation is an
+    identity. A genuine equation (`2x = 4`) is returned unchanged.
+    """
+    if isinstance(value, sp.Equality):
+        if isinstance(value.lhs, sp.Symbol):
+            return value.rhs
+        try:
+            if sp.simplify(value.lhs - value.rhs) == 0:
+                return value.rhs
+        except Exception:
+            pass
+    return value
+
+
 def check_final(learner_latex: str, solution: Solution) -> Verdict:
     """Check a learner's final answer against the SymPy-computed solution."""
     if solution.kind == "none":
@@ -173,8 +192,9 @@ def check_final(learner_latex: str, solution: Solution) -> Verdict:
             remaining.remove(match)
         return Verdict.CORRECT
 
-    value = _strip_var_eq(p.value, None)
-    raw = _strip_var_eq(p.raw, None)
+    # "152 - 6 = 146" (a true identity) counts as stating 146.
+    value = normalize_value(_strip_var_eq(p.value, None))
+    raw = normalize_value(_strip_var_eq(p.raw, None))
     if isinstance(value, tuple):
         return Verdict.INCORRECT
 
@@ -214,13 +234,13 @@ def check_step(learner_latex: str, expected_latex: str | None) -> Verdict:
     got = try_parse(learner_latex)
     if exp is None or got is None:
         return Verdict.UNCHECKABLE
-    exp_v = _strip_var_eq(exp.value, None)
-    got_v = _strip_var_eq(got.value, None)
+    exp_v = normalize_value(exp.value)
+    got_v = normalize_value(got.value)
     if isinstance(exp_v, tuple) or isinstance(got_v, tuple):
         exp_t = exp_v if isinstance(exp_v, tuple) else (exp_v,)
         got_t = got_v if isinstance(got_v, tuple) else (got_v,)
-        exp_t = [_strip_var_eq(e, None) for e in exp_t]
-        got_t = [_strip_var_eq(g, None) for g in got_t]
+        exp_t = [normalize_value(e) for e in exp_t]
+        got_t = [normalize_value(g) for g in got_t]
         if len(exp_t) != len(got_t):
             return Verdict.INCORRECT
         remaining = list(exp_t)
@@ -231,7 +251,8 @@ def check_step(learner_latex: str, expected_latex: str | None) -> Verdict:
             remaining.remove(m)
         return Verdict.CORRECT
     if isinstance(exp_v, sp.Equality) or isinstance(got_v, sp.Equality):
-        # Equation-valued step (e.g. "2x = 4"): compare both sides moved to one side, up to scale.
+        # Genuine equation-valued step (e.g. "2x = 4"): compare both sides
+        # moved to one side, up to a constant factor.
         if isinstance(exp_v, sp.Equality) and isinstance(got_v, sp.Equality):
             a = exp_v.lhs - exp_v.rhs
             b = got_v.lhs - got_v.rhs
@@ -243,7 +264,12 @@ def check_step(learner_latex: str, expected_latex: str | None) -> Verdict:
         return Verdict.INCORRECT
     if not equivalent(got_v, exp_v, _decimal_places(got)):
         return Verdict.INCORRECT
-    if isinstance(exp_v, sp.Rational) and not _is_reduced_plain_number(_strip_var_eq(got.raw, None)):
-        # Expected a plain number and the learner restated the arithmetic.
+    # If the plan's result is a plain number (e.g. "144", or "12^2 = 144"), the
+    # learner must finish the arithmetic. If the plan's result is itself an
+    # unevaluated expression (e.g. "152 - 3(2)"), any equivalent form counts.
+    exp_raw = normalize_value(exp.raw)
+    got_raw = normalize_value(_strip_var_eq(got.raw, None))
+    if (isinstance(exp_v, sp.Rational) and _is_reduced_plain_number(exp_raw)
+            and not _is_reduced_plain_number(got_raw)):
         return Verdict.NOT_SIMPLIFIED
     return Verdict.CORRECT

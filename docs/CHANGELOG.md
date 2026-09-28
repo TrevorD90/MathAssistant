@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixes — 2026-09-28 (first live session, `lim x→2 (8−3x+12²)`)
+- Correct answers were graded INCORRECT when they belonged to a later step or were the final answer (the tutor said "your arithmetic doesn't match" to 146). New `engine/answer_router.py` checks final answer → current step → later steps; the learner can jump ahead (0 AI calls) and is never told a correct value is wrong.
+- Equation-shaped step results (`12^2 = 144`, `8 + 144 - 3x = 152 - 3x`) now accept the plain value (`144`). Unevaluated planned results (`152 - 3(2)`) accept any equivalent form.
+- Answer chains (`152-3(2) = 152 - 6 = 146`) and answers in words ("152 - 6 is 146", "it's 146") are read. Numbers pulled from prose can confirm an answer but never count as a wrong attempt.
+- Leak guard: anything the learner typed may be echoed back (typing `146` unlocks 146; typing `152 - 3(2)` does not). This stopped the repeated canned "Calculate 12 times 12" hint.
+- Display box: captions/titles render `$…$` math instead of showing raw dollar signs.
+
 ### Phase 1 — Core loop (dev mode) — 2026-09-28
 
 **Repo**

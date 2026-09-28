@@ -18,13 +18,12 @@ Phases per problem:
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass
 from typing import Callable
 
 from ..providers.base import LLMProvider, ProviderError, StructuredRequest, Usage
 from ..storage import ProblemRecord, Storage
-from . import context_builder, display, intent, prompts
+from . import answer_router, context_builder, display, intent, prompts
 from .answer_check import Verdict, check_final, check_step
 from .latex_parse import try_parse
 from .leak_guard import GuardContext, scan_all
@@ -36,8 +35,6 @@ log = logging.getLogger(__name__)
 MALFORMED_NOTICE_AFTER = 2
 MALFORMED_NOTICE = ("The AI model keeps returning responses the app can't use. "
                     "A tested model in Settings may work better.")
-
-_FUNC_WORDS = {"sin", "cos", "tan", "sec", "csc", "cot", "ln", "log", "sqrt", "pi", "exp"}
 
 
 class TutorError(Exception):
@@ -57,17 +54,7 @@ class TurnOutcome:
             self.usage = Usage()
 
 
-def looks_like_math(text: str) -> bool:
-    """Plain text that is really a math answer ("25", "2x+2", "x = 3")."""
-    t = text.strip()
-    if not t or len(t) > 120:
-        return False
-    for word in re.findall(r"[A-Za-z]{2,}", t):
-        if word.lower() not in _FUNC_WORDS:
-            return False
-    if not re.search(r"[\dA-Za-z]", t):
-        return False
-    return try_parse(t) is not None
+looks_like_math = answer_router.looks_like_math  # re-exported for callers/tests
 
 
 def _ack(level: int) -> str:
@@ -162,36 +149,48 @@ class TutorEngine:
                 reply = intent.redirect_message(idx + 1, st["current_question"])
                 return self._finish(rec, reply, kind="redirect", outcome=TurnOutcome())
 
-        math = latex or (text if looks_like_math(text) else "")
+        cands = answer_router.candidates(text, latex)
+        # Everything the learner writes is theirs: the leak guard may echo it back.
+        said = st.setdefault("learner_said", [])
+        said.extend(cands.items)
+        del said[:-40]
         is_last = idx == len(steps) - 1
         phase = st["phase"]
         notes: list[str] = []
         advance_if_passed = False
+        v = Verdict.UNCHECKABLE
 
         # ---- 2. Code checks (SymPy) --------------------------------------
         if phase == "final":
-            v = (check_final(math, solution) if solution.kind != "none"
-                 else check_step(math, rec.plan.get("final_answer_latex"))) if math else Verdict.UNCHECKABLE
-            if v == Verdict.CORRECT:
-                st["revealed"].append(math)
-                return self._complete(rec, f"{_ack(rec.level)} You solved it: ${math}$.")
+            final_hits = [c for c in cands.items
+                          if (check_final(c, solution) if solution.kind != "none"
+                              else check_step(c, rec.plan.get("final_answer_latex"))) == Verdict.CORRECT]
+            if final_hits:
+                st["revealed"].append(final_hits[0])
+                return self._complete(rec, f"{_ack(rec.level)} You solved it: ${final_hits[0]}$.")
+            v = (check_final(cands.primary, solution) if solution.kind != "none"
+                 else check_step(cands.primary, rec.plan.get("final_answer_latex"))) if cands.primary                 else Verdict.UNCHECKABLE
+            if cands.from_words and v == Verdict.INCORRECT:
+                v = Verdict.UNCHECKABLE  # numbers pulled from prose never count as a wrong attempt
             notes.append(self._verdict_note(v, st, final=True))
         elif phase == "working":
-            if math:
-                if is_last and solution.kind != "none":
-                    v = check_final(math, solution)
-                else:
-                    v = check_step(math, step.get("result_latex"))
-            else:
-                v = Verdict.UNCHECKABLE
+            m = answer_router.route(cands, idx, steps, solution, rec.plan)
+            v = m.verdict
             if v == Verdict.CORRECT:
-                # Verified by SymPy -> canned acknowledgement + planned check question. 0 AI calls.
-                st["revealed"].append(math)
-                st["phase"] = "checking"
+                # Verified by SymPy -> canned acknowledgement + the planned check
+                # question of whichever step the answer completes. 0 AI calls.
+                target_idx = m.step_index if m.step_index is not None else idx
+                jumped = target_idx > idx
+                st["revealed"].append(m.math)
+                st.update(step_index=target_idx, phase="checking", wrong_attempts=0, step_just_started=False)
                 st["display"] = None                      # §9.2 wipe on correct step answer
-                st["current_question"] = step["check_question"]
-                reply = f"{_ack(rec.level)} {step['check_question']}"
+                target_step = steps[target_idx]
+                st["current_question"] = target_step["check_question"]
+                ahead = " You worked ahead of the steps." if jumped else ""
+                reply = f"{_ack(rec.level)}{ahead} {target_step['check_question']}"
                 return self._finish(rec, reply, kind="check", outcome=TurnOutcome())
+            if cands.from_words and v == Verdict.INCORRECT:
+                v = Verdict.UNCHECKABLE  # numbers pulled from prose never count as a wrong attempt
             if v == Verdict.INCORRECT:
                 st["wrong_attempts"] += 1
             notes.append(self._verdict_note(v, st, final=False, step=step))
@@ -328,7 +327,8 @@ class TutorEngine:
             t = step_target(steps[idx + 1])
             if t:
                 targets.append(t)
-        return GuardContext(targets=targets, problem_latex=rec.problem_latex, revealed_latex=list(st["revealed"]))
+        revealed = list(st["revealed"]) + list(st.get("learner_said", []))
+        return GuardContext(targets=targets, problem_latex=rec.problem_latex, revealed_latex=revealed)
 
     def _safe_reply(self, rec: ProblemRecord) -> str:
         """Canned, pre-guarded fallback: the step's safe hint + the current question."""

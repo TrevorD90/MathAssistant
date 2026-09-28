@@ -373,3 +373,7 @@ def try_parse(latex: str) -> Parsed | None:
         return parse(latex)
     except (LatexParseError, RecursionError, ValueError, TypeError):
         return None
+
+
+# Public alias: split on a separator outside brackets (used for "a = b = c" chains).
+split_top_level = _split_top_level

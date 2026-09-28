@@ -2,7 +2,7 @@
 // problem) plus the tutor's `latex` examples (wiped by the engine; empty is normal).
 
 import type { DisplayPayload, StepItem } from "../api/types";
-import { Latex } from "./MathText";
+import { Latex, MathText } from "./MathText";
 
 export function StepChecklist({ steps }: { steps: StepItem[] }) {
   return (
@@ -33,11 +33,12 @@ export function DisplayBox({ steps, payload }: { steps: StepItem[]; payload: Dis
       <div className="examples" aria-live="polite">
         {isRenderable(payload) && (
           <figure className="example">
-            {payload.title && <figcaption className="example-title">{payload.title}</figcaption>}
+            {payload.title && <figcaption className="example-title"><MathText text={payload.title} /></figcaption>}
             {payload.items.map((it, i) => (
               <div key={i} className="example-item">
                 <Latex latex={it.latex} display />
-                {it.caption && <div className="caption">{it.caption}</div>}
+                {/* captions may contain $...$ math (e.g. "Combine: $5 + 9 = 14$") */}
+                {it.caption && <div className="caption"><MathText text={it.caption} /></div>}
               </div>
             ))}
           </figure>

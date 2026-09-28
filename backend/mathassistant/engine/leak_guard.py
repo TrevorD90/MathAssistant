@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 
 import sympy as sp
 
-from .answer_check import equivalent, numbers_equal
+from .answer_check import _is_reduced_plain_number, equivalent, normalize_value, numbers_equal
 from .latex_parse import normalize, try_parse
 
 log = logging.getLogger(__name__)
@@ -176,18 +176,26 @@ def _problem_numbers(problem_latex: str) -> list[object]:
 
 
 def _revealed_values(revealed: list[str]) -> list[object]:
+    """Values the learner has produced themselves.
+
+    A number only counts once the learner has written it as a number:
+    typing `152 - 3(2)` does not reveal 146 (the tutor still mustn't finish
+    that arithmetic for them), but typing `146` does.
+    """
     vals: list[object] = []
     for r in revealed:
         p = try_parse(r)
         if p is None:
             continue
-        v = p.value
+        v, raw = p.value, p.raw
         items = v if isinstance(v, tuple) else (v,)
-        for it in items:
-            if isinstance(it, sp.Equality):
-                vals.extend([it.lhs, it.rhs])
-            else:
-                vals.append(it)
+        raws = raw if isinstance(raw, tuple) else (raw,) * len(items)
+        for it, rw in zip(items, raws):
+            sides = [(it.lhs, getattr(rw, "lhs", None)), (it.rhs, getattr(rw, "rhs", None))]                 if isinstance(it, sp.Equality) else [(it, rw)]
+            for val, val_raw in sides:
+                if isinstance(val, sp.Basic) and not val.free_symbols and not _is_reduced_plain_number(val_raw):
+                    continue
+                vals.append(val)
     return vals
 
 
@@ -339,6 +347,9 @@ def target_from_latex(label: str, latex: str | None, variable: str | None = None
     if isinstance(v, sp.Equality):
         if isinstance(v.lhs, sp.Symbol):
             return Target(label, v.rhs, latex, variable or v.lhs.name)
+        nv = normalize_value(v)  # identities like "12^2 = 144" stand for 144
+        if not isinstance(nv, sp.Equality):
+            return Target(label, nv, latex, variable)
         return Target(label, None, latex, variable)
     if _is_operator_form(v):
         return Target(label, None, latex, variable)
