@@ -13,6 +13,7 @@
   "dependencies": {
     "katex": "^0.18.9",
     "mathlive": "^0.110.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^5.0.15"

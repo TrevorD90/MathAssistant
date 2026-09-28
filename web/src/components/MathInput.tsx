@@ -8,6 +8,19 @@ import { LAYOUTS } from "./keyboard/layouts";
 
 let configured = false;
 
+// MathLive finishes setting up a newly mounted <math-field> asynchronously.
+// Touching it (focus/setValue) in the same tick can throw inside MathLive, so
+// such calls run on the next animation frame and never take the app down.
+function whenReady(fn: () => void) {
+  requestAnimationFrame(() => {
+    try {
+      fn();
+    } catch (e) {
+      console.warn("math field not ready", e);
+    }
+  });
+}
+
 function configureMathlive() {
   if (configured) return;
   configured = true;
@@ -43,6 +56,7 @@ interface Props {
 
 export function MathInput({ value, onChange, onSubmit, placeholder, ariaLabel, autoFocus, disabled }: Props) {
   const ref = useRef<MF>(null);
+  const initialValue = useRef(value);
   const onChangeRef = useRef(onChange);
   const onSubmitRef = useRef(onSubmit);
   onChangeRef.current = onChange;
@@ -64,7 +78,7 @@ export function MathInput({ value, onChange, onSubmit, placeholder, ariaLabel, a
     };
     mf.addEventListener("input", handleInput);
     mf.addEventListener("keydown", handleKey, { capture: true });
-    if (autoFocus) mf.focus();
+    if (autoFocus) whenReady(() => mf.focus());
     return () => {
       mf.removeEventListener("input", handleInput);
       mf.removeEventListener("keydown", handleKey, { capture: true });
@@ -74,7 +88,10 @@ export function MathInput({ value, onChange, onSubmit, placeholder, ariaLabel, a
   // Keep the field in sync when the parent clears/sets the value.
   useEffect(() => {
     const mf = ref.current;
-    if (mf && mf.getValue("latex") !== value) mf.setValue(value, { silenceNotifications: true });
+    if (!mf) return;
+    whenReady(() => {
+      if (mf.getValue("latex") !== value) mf.setValue(value, { silenceNotifications: true });
+    });
   }, [value]);
 
   useEffect(() => {
@@ -87,7 +104,9 @@ export function MathInput({ value, onChange, onSubmit, placeholder, ariaLabel, a
 
   return (
     <div className="math-input">
-      <math-field ref={ref} aria-label={ariaLabel} />
+      {/* The starting value goes in as text content: MathLive reads it when the
+          element initializes (setValue on a brand-new field can be ignored). */}
+      <math-field ref={ref} aria-label={ariaLabel}>{initialValue.current}</math-field>
     </div>
   );
 }

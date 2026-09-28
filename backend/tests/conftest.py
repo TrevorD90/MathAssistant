@@ -88,6 +88,9 @@ class Script:
     def __init__(self):
         self.turns: deque = deque()
         self.default = default_turn()
+        # Phase 2: what the "vision model" reads from any image.
+        self.vision: dict | None = {"readable": True, "kind": "math", "latex": r"5\times5", "text": "",
+                                    "instruction": "", "note": ""}
 
     def push(self, *responses: dict | None):
         self.turns.extend(responses)
@@ -99,6 +102,9 @@ class Script:
             return PLANS.get(problem, PLANS["2(x+1)+0"])
         if req.purpose == "probe":
             return {"ok": True}
+        if req.purpose == "vision":
+            return self.vision
+        # (turns fall through)
         if self.turns:
             return self.turns.popleft()
         return dict(self.default)

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Phase 2 — Image/PDF input — 2026-09-28
+- **Camera** (webcam via `getUserMedia`), **photo/screenshot upload**, **clipboard paste** (Ctrl+V on the entry screen), and **PDF** (pdf.js, pick a page). All four go through the same **crop** step, then **one vision call** (`POST /api/extract`) that transcribes the problem (math → LaTeX, word problem → text, never solved). The result loads into the normal entry fields to **confirm or edit**; tutoring starts only on Start.
+- Images are cropped and downscaled in the browser (≤1568 px side, ≤1.15 MP; PNG, JPEG for large photos), validated server-side (type, signature, 5 MB), sent to the provider once, and **never stored or logged** (tested).
+- The vision call's tokens are added to the problem's usage meter when it starts (counted once).
+- **Capability gating:** Test key now probes image support and structured output in one tiny call; image inputs are disabled with an explanation for models that can't read images.
+- **Fixed port 51789** (falls back to a free port if taken) so the browser remembers camera permission.
+- Security headers: `Permissions-Policy: camera=(self)` (no microphone/location); CSP allows same-origin workers and `'wasm-unsafe-eval'` for pdf.js's bundled decoders (no JS `eval`). `.mjs`/`.wasm` served with correct MIME types on Windows.
+- UI robustness: MathLive fields receive their initial value as content and defer focus (a freshly mounted field could crash the app); an error boundary replaces a blank screen with a Reload prompt; the cropper finishes a selection on pointer release.
+- pdf.js 6.3 (Apache-2.0) with its WASM decoders (BSD/Apache/MIT), fonts and CMaps bundled under `/pdfjs/`; loaded only when a PDF is opened.
+
 ### Added — 2026-09-28
 - `$` handling: inline math uses the Pandoc rule (opening `$` followed by a non-space; closing `$` after a non-space and not before a digit), so money in word problems ("$5 and a $2 toy") renders as text. The word-problem box no longer suggests `$` for math.
 - Word problems: a "Word problem" option on the entry screen (plain text, `$…$` math allowed). The intake call also returns `math_formulation_latex` (e.g. `3	imes 12`); SymPy computes the answer from it and overrides the model's answer and last step result (N8). Still one AI call at intake. Problems SymPy can't formulate (proofs, explanations) fall back to the model's stated answer, as §7.1 allows.

@@ -20,7 +20,7 @@ interface AppState {
   init: () => Promise<void>;
   go: (screen: Screen) => void;
   refreshStatus: () => Promise<void>;
-  startProblem: (latex: string, text?: string) => Promise<void>;
+  startProblem: (latex: string, text?: string, extractionId?: string | null) => Promise<void>;
   sendTurn: (text: string, latex: string) => Promise<void>;
   newProblem: () => void;
   openProblem: (id: string) => Promise<void>;
@@ -86,8 +86,8 @@ export const useApp = create<AppState>((set, get) => {
       }
     },
 
-    startProblem: async (latex, text = "") => {
-      const view = await run(() => api.startProblem(latex, text));
+    startProblem: async (latex, text = "", extractionId = null) => {
+      const view = await run(() => api.startProblem(latex, text, extractionId));
       if (view) set({ problem: view, screen: "tutor" });
     },
 

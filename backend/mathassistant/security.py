@@ -22,7 +22,10 @@ TOKEN_HEADER = "x-session-token"
 
 CSP = (
     "default-src 'self'; "
-    "script-src 'self'; "
+    # 'wasm-unsafe-eval': pdf.js decodes some PDF images with bundled WebAssembly
+    # (only compiles WASM served from this origin; no JS eval).
+    "script-src 'self' 'wasm-unsafe-eval'; "
+    "worker-src 'self' blob:; "
     # KaTeX and MathLive set inline styles on rendered math.
     "style-src 'self' 'unsafe-inline'; "
     "font-src 'self' data:; "
@@ -60,5 +63,7 @@ class LocalOnlyMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Frame-Options"] = "DENY"
+        # Camera only for this page; no microphone, location, etc.
+        response.headers["Permissions-Policy"] = "camera=(self), microphone=(), geolocation=(), payment=()"
         response.headers["Cache-Control"] = "no-store" if request.url.path.startswith("/api") else "no-cache"
         return response

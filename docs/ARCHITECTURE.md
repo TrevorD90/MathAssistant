@@ -41,6 +41,7 @@ FastAPI (security middleware → routes → Services)
 | `engine/intent.py` | Conservative off-topic pre-check + canned redirect |
 | `engine/display.py` | `latex` payload schema, §9.1 gating, `steps` checklist |
 | `engine/step_planner.py` | Intake call, plan validation, SymPy-wins override, guards plan strings. Word problems: SymPy solves the model's `math_formulation_latex` |
+| `engine/extract.py` | Phase 2: image validation (type/signature/size) and the one vision call that transcribes a problem (never solves) |
 | `engine/answer_router.py` | Routes an answer to final / current / later step; reads chains, prose and units |
 | `engine/turn_loop.py` | The state machine (working → checking → final → done) |
 | `engine/prompts.py` | System prompts, JSON schemas, token caps |
@@ -62,6 +63,7 @@ FastAPI (security middleware → routes → Services)
 
 | Event | Calls |
 |---|---|
+| Read a problem from an image/PDF | 1 (vision), before intake |
 | Start a problem | 1 (intake: level + plan) |
 | Normal tutoring turn | 1 |
 | Leak detected | +1 (one regenerate), then canned |
@@ -83,6 +85,7 @@ Prompt order for caching: fixed system prompt → per-problem context (both `cac
 | GET/POST/DELETE | `/api/problems` | list / start / delete all |
 | GET/DELETE | `/api/problems/{id}` | resume (0 AI calls) / delete |
 | POST | `/api/problems/{id}/turn` | `{text}` or `{latex}` |
+| POST | `/api/extract` | Phase 2: `{image_base64, media_type}` → problem to confirm (1 vision call; image not stored) |
 | POST | `/api/quit` | stop the server |
 
 ## Frontend (`web/src/`)
@@ -92,6 +95,7 @@ Prompt order for caching: fixed system prompt → per-problem context (both `cac
 - `components/MathInput.tsx`: `<math-field>` with the five custom keyboard tabs (`keyboard/layouts.ts`). Fonts are copied into the build; no sounds, no CDN.
 - `components/MathText.tsx`: KaTeX rendering of `$…$` segments (`trust: false`), plain text as React text.
 - `components/DisplayBox.tsx`, `TutorScreen.tsx`, `ProblemsScreen.tsx`, `Settings.tsx`.
+- Phase 2: `capture/image.ts` (crop, downscale, encode, clipboard), `capture/pdf.ts` (pdf.js, lazy-loaded), `components/capture/` (`CaptureFlow`, `CameraView`, `Cropper`). The server listens on port 51789 by default so camera permission persists.
 
 ## Data locations
 

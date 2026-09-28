@@ -2,24 +2,88 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../store/app";
+import type { Extraction } from "../api/types";
+import { imageFromClipboard } from "../capture/image";
+import { CaptureFlow, type CaptureStart } from "./capture/CaptureFlow";
 import { DisplayBox } from "./DisplayBox";
 import { MathInput } from "./MathInput";
 import { Latex, MathText } from "./MathText";
 
 function ProblemEntry() {
-  const { startProblem, busy } = useApp();
+  const { startProblem, busy, status } = useApp();
   const [kind, setKind] = useState<"math" | "words">("math");
   const [latex, setLatex] = useState("");
   const [text, setText] = useState("");
+  const [capture, setCapture] = useState<CaptureStart | null>(null);
+  const [extracted, setExtracted] = useState<Extraction | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const canSee = status?.capabilities.vision ?? false;
   const ready = kind === "math" ? latex.trim() : text.trim();
+
   const submit = () => {
     if (!ready || busy) return;
-    if (kind === "math") void startProblem(latex);
-    else void startProblem("", text);
+    const exId = extracted?.extraction_id ?? null;
+    if (kind === "math") void startProblem(latex, "", exId);
+    else void startProblem("", text, exId);
   };
+
+  // Screenshot paste (Ctrl+V / Cmd+V) anywhere on the entry screen. Text
+  // pastes into the fields work as usual; only image pastes are intercepted.
+  useEffect(() => {
+    if (!canSee || capture) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const file = imageFromClipboard(e.clipboardData);
+      if (file) {
+        e.preventDefault();
+        setCapture({ type: "file", file });
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [canSee, capture]);
+
+  // The AI's reading goes into the normal fields so the learner can confirm or edit it.
+  const onExtracted = (ex: Extraction) => {
+    setExtracted(ex);
+    setCapture(null);
+    setKind(ex.kind);
+    if (ex.kind === "math") setLatex(ex.latex);
+    else setText(ex.text);
+  };
+
+  if (capture) {
+    return (
+      <section className="entry">
+        <h1>Add a problem from an image</h1>
+        <CaptureFlow start={capture} onExtracted={onExtracted} onCancel={() => setCapture(null)} />
+      </section>
+    );
+  }
+
   return (
     <section className="entry">
       <h1>What problem are you working on?</h1>
+      <div className="image-sources" aria-label="Add from an image">
+        <button disabled={!canSee} onClick={() => setCapture({ type: "camera" })}>📷 Camera</button>
+        <button disabled={!canSee} onClick={() => fileRef.current?.click()}>🖼 Photo, screenshot, or PDF</button>
+        <span className="muted small">{canSee ? "or paste a screenshot (Ctrl+V)" : "The selected model can't read images. Pick one that can in Settings."}</span>
+        <input ref={fileRef} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+               onChange={(e) => {
+                 const f = e.target.files?.[0];
+                 e.target.value = "";
+                 if (f) setCapture({ type: "file", file: f });
+               }} />
+      </div>
+      {extracted && (
+        <div className="notice confirm" role="status">
+          <span>
+            <strong>Check the problem below.</strong> Fix anything that was misread, then press Start.
+            {extracted.instruction && <> The image says: “{extracted.instruction}”.</>}
+            {extracted.note && extracted.note !== "demo" && <> ({extracted.note})</>}
+          </span>
+          <button className="ghost" onClick={() => setExtracted(null)} aria-label="Dismiss">✕</button>
+        </div>
+      )}
       <div className="mode-switch entry-switch" role="tablist" aria-label="Problem type">
         <button role="tab" aria-selected={kind === "math"} className={kind === "math" ? "on" : ""}
                 onClick={() => setKind("math")}>Math</button>

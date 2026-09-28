@@ -95,6 +95,17 @@ export interface ProblemSummary {
   updated_at: string;
 }
 
+// Phase 2: what the vision call read from an image (for the learner to confirm).
+export interface Extraction {
+  extraction_id: string;
+  readable: boolean;
+  kind: "math" | "words";
+  latex: string;
+  text: string;
+  instruction: string;
+  note: string;
+}
+
 export interface ProblemList {
   in_progress: ProblemSummary[];
   completed: ProblemSummary[];

@@ -25,6 +25,7 @@ _STATUS = {
     "no_key": 409, "key_not_verified": 409, "keystore_unavailable": 503,
     "invalid_key": 401, "permission": 403, "no_credits": 402, "rate_limited": 429,
     "outage": 502, "network": 502, "model_not_found": 400, "missing_capability": 400,
+    "bad_image": 400,
 }
 
 
@@ -93,6 +94,13 @@ def remove_key(request: Request, provider: str = "anthropic"):
 class StartBody(BaseModel):
     latex: str = Field(default="", max_length=2000)
     text: str = Field(default="", max_length=2000)   # word problem (plain text)
+    extraction_id: str | None = Field(default=None, max_length=40)  # set when it came from an image
+
+
+class ExtractBody(BaseModel):
+    # base64 of a cropped, downscaled image (5 MB decoded max -> ~7 MB base64)
+    image_base64: str = Field(max_length=7_200_000)
+    media_type: str = Field(max_length=20)
 
 
 class TurnBody(BaseModel):
@@ -105,9 +113,17 @@ def list_problems(request: Request):
     return _svc(request).storage.list_problems()
 
 
+@router.post("/extract")
+def extract(body: ExtractBody, request: Request):
+    """Phase 2: image -> problem text to confirm. One vision call; the image isn't stored."""
+    return _svc(request).extract_image(body.image_base64, body.media_type)
+
+
 @router.post("/problems")
 def start_problem(body: StartBody, request: Request):
-    return _svc(request).engine.start_problem(body.latex, body.text)
+    svc = _svc(request)
+    extra = svc.take_extraction_usage(body.extraction_id)
+    return svc.engine.start_problem(body.latex, body.text, extra_usage=extra)
 
 
 @router.get("/problems/{problem_id}")

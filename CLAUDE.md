@@ -50,7 +50,7 @@ DEV_MODE=true MATHASSISTANT_DEMO=1 .venv/Scripts/python -m mathassistant
 | Phase | Status |
 |---|---|
 | 1 — Core loop (dev mode) | Built 2026-09-28; awaiting live acceptance run with a real key |
-| 2 — Image/PDF input | Not started (needs approval) |
+| 2 — Image/PDF input | Built 2026-09-28 (camera, upload, paste, PDF, crop, vision, confirm); live camera + real-vision check pending |
 | 3 — Packaging | Not started |
 | 4 — Richer visuals | Not started |
 | 5 — More providers | Not started |
@@ -71,5 +71,8 @@ DEV_MODE=true MATHASSISTANT_DEMO=1 .venv/Scripts/python -m mathassistant
 - 2026-09-28 — Dev-only offline DemoProvider (`DEV_MODE=true MATHASSISTANT_DEMO=1`), never active in bundled builds.
 - 2026-09-28 — Off-topic pre-check is conservative: needs no math content AND a positive off-topic cue; uncertain messages go to the AI.
 - 2026-09-28 — N4 amended by the user: correct answers are accepted immediately; a check question is asked only after a wrong attempt on that step. Correct final answer = solved.
+- 2026-09-28 — Phase 2 approved and built. Fixed default port 51789 (user choice) so camera permission persists; fallback to a free port.
+- 2026-09-28 — Vision extraction is transcription only (never solves); result must be confirmed by the learner before the intake call. Images never stored/logged.
+- 2026-09-28 — Crop UI built in-house (no library). pdf.js 6.3 bundled; CSP gains 'wasm-unsafe-eval' + worker-src for it.
 - 2026-09-28 — Word problems added: plain-text entry; intake returns `math_formulation_latex`; SymPy solves it and wins over the model. Migration v2 adds `problem_kind`.
 - 2026-09-28 — Answers are routed against final answer → current step → later steps (learners may work ahead). Numbers pulled from prose can confirm but never count as wrong.

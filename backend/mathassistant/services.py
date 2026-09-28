@@ -5,12 +5,16 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
+import threading
+import time
 from typing import Callable
 
 from . import key_store
+from .engine import extract as extract_mod
 from .engine.turn_loop import TutorEngine, TutorError
 from .providers import registry
-from .providers.base import Capabilities, LLMProvider, ProviderError
+from .providers.base import Capabilities, LLMProvider, ProviderError, Usage
 from .storage import Storage
 
 log = logging.getLogger(__name__)
@@ -39,6 +43,10 @@ class Services:
         self._provider_factory_override = provider_factory
         self.engine = TutorEngine(storage, self.make_provider)
         self.shutdown: Callable[[], None] = lambda: None
+        # Vision-call usage waiting to be added to the problem it becomes
+        # (extraction_id -> (Usage, created_at)). In memory only; no image data.
+        self._pending_usage: dict[str, tuple[Usage, float]] = {}
+        self._pending_lock = threading.Lock()
 
     # ------------------------------------------------------------ settings
 
@@ -119,6 +127,48 @@ class Services:
         self.storage.set_setting(S_KEY_OK, "1")
         log.info("key test passed: provider=%s model=%s structured=%s", provider, model, caps.structured_output)
         return {"ok": True, "capabilities": caps.__dict__}
+
+    # ------------------------------------------------------------ images (Phase 2)
+
+    def extract_image(self, image_base64: str, media_type: str) -> dict:
+        """One vision call: image -> problem text for the learner to confirm."""
+        if not self.capabilities().vision:
+            raise TutorError("The selected model can't read images. Type the problem instead, "
+                             "or pick a model that supports images in Settings.", "missing_capability")
+        try:
+            image = extract_mod.decode_image(image_base64, media_type)
+        except extract_mod.ImageError as exc:
+            raise TutorError(str(exc), "bad_image") from None
+        provider = self.make_provider()
+        try:
+            ex = extract_mod.extract_problem(provider, image, media_type)
+        except ProviderError as err:
+            raise TutorError(err.user_message, err.kind) from None
+        finally:
+            del image  # never kept
+        extraction_id = secrets.token_urlsafe(12)
+        with self._pending_lock:
+            now = time.monotonic()
+            # Drop stale entries (abandoned confirmations) after an hour.
+            self._pending_usage = {k: v for k, v in self._pending_usage.items() if now - v[1] < 3600}
+            self._pending_usage[extraction_id] = (ex.usage, now)
+        return {
+            "extraction_id": extraction_id,
+            "readable": ex.readable,
+            "kind": ex.kind,
+            "latex": ex.latex,
+            "text": ex.text,
+            "instruction": ex.instruction,
+            "note": ex.note,
+        }
+
+    def take_extraction_usage(self, extraction_id: str | None) -> Usage | None:
+        """Usage of the vision call that produced this problem (counted once)."""
+        if not extraction_id:
+            return None
+        with self._pending_lock:
+            item = self._pending_usage.pop(extraction_id, None)
+        return item[0] if item else None
 
     def remove_key(self, provider: str) -> None:
         if self._provider_factory_override is None:

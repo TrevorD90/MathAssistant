@@ -17,7 +17,7 @@ class DemoProvider(LLMProvider):
     name = "demo"
 
     def __init__(self):
-        super().__init__("demo", Capabilities(vision=False, structured_output=True, streaming=False))
+        super().__init__("demo", Capabilities(vision=True, structured_output=True, streaming=False))
         self._turn = 0
 
     def probe(self) -> Capabilities:
@@ -47,6 +47,9 @@ class DemoProvider(LLMProvider):
                      "safe_hint": "Try a smaller, similar problem first."},
                 ],
             }, usage=usage)
+        if req.purpose == "vision":
+            return StructuredResult(data={"readable": True, "kind": "math", "latex": r"5\times 5",
+                                          "text": "", "instruction": "", "note": "demo"}, usage=usage)
         self._turn += 1
         note = req.messages[0]["content"]
         passed = "PHASE: CHECK" in note

@@ -6,7 +6,7 @@ A math-only Socratic tutor that runs entirely on your own computer (Windows or M
 - **Bring your own AI key.** Your key is stored in your OS credential store (Windows Credential Manager / macOS Keychain) and sent only to the provider you choose.
 - **Math is checked by code.** Answers are verified with SymPy, not by the AI.
 
-> Status: Phase 1 (developer build). Downloadable apps for Windows and Mac arrive in Phase 3, with a first-run guide for the unsigned-app warnings.
+> Status: Phase 2 (developer build): type a problem, write a word problem, or add one from a photo, screenshot, camera, or PDF. Downloadable apps for Windows and Mac arrive in Phase 3, with a first-run guide for the unsigned-app warnings.
 
 ## Developer setup
 

@@ -68,7 +68,8 @@ class TutorEngine:
 
     # ================================================================ intake
 
-    def start_problem(self, problem_latex: str = "", problem_text: str = "") -> dict:
+    def start_problem(self, problem_latex: str = "", problem_text: str = "",
+                      extra_usage: Usage | None = None) -> dict:
         """Start from LaTeX (math field) or plain text (a word problem)."""
         problem_text = (problem_text or "").strip()
         problem_kind = "words" if problem_text else "math"
@@ -108,6 +109,11 @@ class TutorEngine:
             ai_calls=intake.ai_calls,
             problem_kind=problem_kind,
         )
+        if extra_usage is not None:
+            # The vision call that read this problem from an image (Phase 2).
+            rec.tokens_in += extra_usage.input_tokens + extra_usage.cache_read_tokens + extra_usage.cache_write_tokens
+            rec.tokens_out += extra_usage.output_tokens
+            rec.ai_calls += 1
         rec.summary = context_builder.summary(rec.plan, rec.state)
         self.storage.save_problem(rec)
         return self.view(rec)

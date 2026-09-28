@@ -2,7 +2,7 @@
 // The launcher opens the app at /#token=<token>; we move it into sessionStorage
 // and strip it from the URL so it isn't left in the address bar or history.
 
-import type { ProblemList, ProblemView, ProvidersResponse, Status } from "./types";
+import type { Extraction, ProblemList, ProblemView, ProvidersResponse, Status } from "./types";
 
 const TOKEN_KEY = "mathassistant.token";
 let token: string | null = null;
@@ -69,7 +69,11 @@ export const api = {
     request<Status>("DELETE", `/api/key?provider=${encodeURIComponent(provider)}`),
   listProblems: () => request<ProblemList>("GET", "/api/problems"),
   // Either LaTeX (math field) or plain text (word problem).
-  startProblem: (latex: string, text = "") => request<ProblemView>("POST", "/api/problems", { latex, text }),
+  startProblem: (latex: string, text = "", extractionId: string | null = null) =>
+    request<ProblemView>("POST", "/api/problems", { latex, text, extraction_id: extractionId }),
+  // Phase 2: one cropped image -> problem text to confirm (one vision call; not stored).
+  extract: (imageBase64: string, mediaType: string) =>
+    request<Extraction>("POST", "/api/extract", { image_base64: imageBase64, media_type: mediaType }),
   getProblem: (id: string) => request<ProblemView>("GET", `/api/problems/${encodeURIComponent(id)}`),
   turn: (id: string, text: string, latex: string) =>
     request<ProblemView>("POST", `/api/problems/${encodeURIComponent(id)}/turn`, { text, latex }),

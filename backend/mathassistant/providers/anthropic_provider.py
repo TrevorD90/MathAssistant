@@ -8,12 +8,15 @@
   context) is cached where the model's minimum prefix length allows.
   Note: Haiku 4.5's minimum cacheable prefix is 4096 tokens, so caching is a
   no-op there with our short prompts; it applies on Sonnet 5 (>=1024).
+* Vision: image content blocks pass straight through `messages` (see
+  engine/extract.py); `probe()` detects whether the model accepts images.
 * Errors are mapped to fixed `ProviderError` kinds. Provider error text is
   never surfaced or logged verbatim (it can echo request details).
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 
@@ -158,25 +161,62 @@ class AnthropicProvider(LLMProvider):
     # -------------------------------------------------------------- probe
 
     def probe(self) -> Capabilities:
-        """Test the key (tiny call) and detect native structured output.
+        """Test the key and detect capabilities in one tiny call (§11.2).
 
-        Costs a few tokens. A key failure raises ProviderError; a model that
-        rejects `output_config.format` is retried once without it.
+        The first attempt uses both structured output and a tiny 16x16 image.
+        If the model rejects one of them (400), that capability is turned off
+        and the call is retried without it. Key/network failures raise
+        ProviderError. Costs a few dozen tokens.
         """
         schema = {"type": "object", "properties": {"ok": {"type": "boolean"}},
                   "required": ["ok"], "additionalProperties": False}
-        base = {"model": self.model, "max_tokens": 16,
-                "messages": [{"role": "user", "content": "Reply with ok=true."}]}
         caps = Capabilities(vision=True, structured_output=True, streaming=True)
-        try:
-            self._client.messages.create(**base, output_config={"format": {"type": "json_schema", "schema": schema}})
-        except Exception as exc:  # noqa: BLE001
-            if not _is_format_unsupported(exc):
-                raise _map_error(exc) from None
-            caps.structured_output = False
+        for _ in range(3):
+            content: list[dict] | str
+            if caps.vision:
+                content = [
+                    {"type": "image", "source": {"type": "base64", "media_type": "image/png",
+                                                 "data": base64.standard_b64encode(_probe_png()).decode()}},
+                    {"type": "text", "text": "Reply with ok=true."},
+                ]
+            else:
+                content = "Reply with ok=true."
+            kwargs: dict = {"model": self.model, "max_tokens": 16,
+                            "messages": [{"role": "user", "content": content}]}
+            if caps.structured_output:
+                kwargs["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
             try:
-                self._client.messages.create(**base)
-            except Exception as exc2:  # noqa: BLE001
-                raise _map_error(exc2) from None
+                self._client.messages.create(**kwargs)
+                break
+            except Exception as exc:  # noqa: BLE001
+                if caps.vision and _is_image_unsupported(exc):
+                    caps.vision = False
+                elif caps.structured_output and _is_format_unsupported(exc):
+                    caps.structured_output = False
+                else:
+                    raise _map_error(exc) from None
+        else:
+            raise ProviderError("missing_capability")
         self.capabilities = caps
         return caps
+
+
+def _is_image_unsupported(exc: Exception) -> bool:
+    if not isinstance(exc, anthropic.BadRequestError):
+        return False
+    msg = str(getattr(exc, "message", "") or "").lower()
+    return "image" in msg or "vision" in msg
+
+
+def _probe_png() -> bytes:
+    """A 16x16 white PNG, built in code (no binary files in the repo)."""
+    import struct
+    import zlib
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    w = h = 16
+    raw = b"".join(b"\x00" + b"\xff\xff\xff" * w for _ in range(h))  # filter byte + RGB row
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))

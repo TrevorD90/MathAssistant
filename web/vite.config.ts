@@ -18,8 +18,25 @@ function copyMathliveFonts(): Plugin {
   };
 }
 
+// pdf.js (Phase 2) loads fonts, character maps and WASM image decoders at
+// runtime; bundle them under /pdfjs/ (see src/capture/pdf.ts). Licenses:
+// Apache-2.0 / BSD / MIT (checked 2026-09-28).
+function copyPdfjsAssets(): Plugin {
+  return {
+    name: "copy-pdfjs-assets",
+    apply: "build",
+    writeBundle(options) {
+      for (const dir of ["cmaps", "standard_fonts", "wasm"]) {
+        const src = resolve(__dirname, "node_modules/pdfjs-dist", dir);
+        const dest = resolve(options.dir ?? "dist", "pdfjs", dir);
+        if (existsSync(src)) cpSync(src, dest, { recursive: true });
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), copyMathliveFonts()],
+  plugins: [react(), copyMathliveFonts(), copyPdfjsAssets()],
   base: "/",
   build: { outDir: "dist", emptyOutDir: true, sourcemap: false, chunkSizeWarningLimit: 2000 }, // local app: one bundle is fine
   server: {

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 from pathlib import Path
 from typing import Callable
 
@@ -19,6 +20,13 @@ from .services import Services
 from .storage import Storage
 
 log = logging.getLogger(__name__)
+
+# Windows' registry often lacks these; browsers refuse module workers (pdf.js)
+# and streaming WebAssembly served with the wrong Content-Type.
+mimetypes.add_type("text/javascript", ".mjs")
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("application/wasm", ".wasm")
+mimetypes.add_type("text/css", ".css")
 
 
 def create_app(*, token: str, port_getter: Callable[[], int], storage: Storage | None = None,

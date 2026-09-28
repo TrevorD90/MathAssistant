@@ -3,8 +3,8 @@
 Every provider implements `LLMProvider`. Features are gated on declared
 `Capabilities`; the leak guard and SymPy checks apply regardless of provider.
 
-Phase 1 uses only `structured()` (intake + turns). `vision_extract()` is part
-of the interface for Phase 2; streaming chat is declared as a capability but
+`structured()` serves intake, turns, and (Phase 2) vision extraction: image
+content blocks travel inside `messages`. Streaming chat is declared as a capability but
 not used in Phase 1 (replies are buffered so the leak guard runs before
 anything is shown — see CLAUDE.md decision log).
 """
@@ -106,5 +106,3 @@ class LLMProvider(ABC):
     def probe(self) -> Capabilities:
         """Test the key with a tiny call and detect capabilities. Raises ProviderError."""
 
-    def vision_extract(self, image_bytes: bytes, media_type: str) -> str:  # pragma: no cover - Phase 2
-        raise ProviderError("missing_capability")
