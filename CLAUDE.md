@@ -37,15 +37,19 @@ cd web && npm install
 .venv/Scripts/python -m mathassistant
 
 # tests
-.venv/Scripts/python -m pytest backend/tests
+.venv/Scripts/python -m pytest backend/tests          # offline suite (live tests deselected)
+.venv/Scripts/python -m pytest backend/tests/live -m live -s   # real API, costs a little
 cd web && npm test
+
+# offline UI demo (no key, no AI)
+DEV_MODE=true MATHASSISTANT_DEMO=1 .venv/Scripts/python -m mathassistant
 ```
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| 1 — Core loop (dev mode) | In progress |
+| 1 — Core loop (dev mode) | Built 2026-09-28; awaiting live acceptance run with a real key |
 | 2 — Image/PDF input | Not started (needs approval) |
 | 3 — Packaging | Not started |
 | 4 — Richer visuals | Not started |
@@ -60,3 +64,9 @@ cd web && npm test
 - 2026-09-28 — LaTeX parsing via SymPy `parse_latex(backend="lark")` (MIT `lark`), not `latex2sympy2` (pins stale deps).
 - 2026-09-28 — Prompt caching: Haiku 4.5 minimum cacheable prefix is 4096 tokens; our prompts are shorter, so caching is a no-op on Haiku (still marked; applies on Sonnet 5 at ≥1024).
 - 2026-09-28 — Default branch `main`; `.idea/` and `*.iml` git-ignored.
+- 2026-09-28 — SymPy-verified correct step answers get a canned "Correct." + the plan's pre-written check question (0 AI calls). Correct final answers complete with 0 AI calls. AI is called only when judgment is needed.
+- 2026-09-28 — Own LaTeX translator for answers; SymPy's Lark parser only for calculus notation (it misreads `\sin(x^2)x` as `sin(x^3)`).
+- 2026-09-28 — Leaking plan strings at intake are replaced with generic safe text (no extra AI call).
+- 2026-09-28 — Both Anthropic models start `tested=False` until the live suite passes (UI shows the untested warning meanwhile).
+- 2026-09-28 — Dev-only offline DemoProvider (`DEV_MODE=true MATHASSISTANT_DEMO=1`), never active in bundled builds.
+- 2026-09-28 — Off-topic pre-check is conservative: needs no math content AND a positive off-topic cue; uncertain messages go to the AI.

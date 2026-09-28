@@ -22,8 +22,15 @@ cd web && npm install && cd ..
 Run tests:
 
 ```bash
-.venv/Scripts/python -m pytest backend/tests
+.venv/Scripts/python -m pytest backend/tests                 # offline
+.venv/Scripts/python -m pytest backend/tests/live -m live -s  # real API (needs your saved key; costs a little)
 cd web && npm test
+```
+
+Try the UI without a key (canned responses, no AI):
+
+```bash
+DEV_MODE=true MATHASSISTANT_DEMO=1 .venv/Scripts/python -m mathassistant
 ```
 
 See `docs/MATH_TUTOR_SPEC.md` for the design and `docs/ARCHITECTURE.md` for how the code is laid out.
